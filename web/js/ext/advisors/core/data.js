@@ -68,16 +68,16 @@ export function buildData(app) {
   const econFields = (src) => [
     F("population", "Population", "int", { unit: "people", source: src, group: "People", description: `Residents (${vintage}, B01003).`, lens: "density" }),
     F("growth", "Growth", "signed", { unit: "population change", higher_is: "neutral", source: "pep_population", group: "People", description: `Population change ${(nat.growth_years || []).join("–")} (Census population estimates, same borders both years).` }),
-    F("gdp", "GDP", "money", { unit: "$ per year", source: "bea_gdp", description: `${nation.gdp_vintage || "BEA"}: GDP in current dollars, counted where the work is done.` }),
-    F("gdp_pc", "GDP per person", "usd", { unit: "$ per resident", higher_is: "good", source: "bea_gdp", description: "GDP ÷ residents (BEA GDP year ÷ ACS population year)." }),
-    F("median_income", "Income", "usd", { unit: "median household income", higher_is: "good", source: src, group: "Prosperity", description: `Median household income (${vintage}).`, lens: "income" }),
-    F("median_rent", "Rent", "usd", { unit: "median gross rent / month", source: src, group: "Prosperity", description: `Median gross rent per month (${vintage}).` }),
-    F("home_value", "Home value", "usd", { unit: "median home value", source: src, group: "Prosperity", description: `Median value of owner-occupied homes (${vintage}).`, lens: "home" }),
+    F("gdp", "GDP", "money", { unit: "$ per year", source: "bea_gdp", description: `${nation.gdp_vintage || "BEA"}: GDP in current euros, counted where the work is done.` }),
+    F("gdp_pc", "GDP per person", "eur", { unit: "$ per resident", higher_is: "good", source: "bea_gdp", description: "GDP ÷ residents (BEA GDP year ÷ ACS population year)." }),
+    F("median_income", "Income", "eur", { unit: "median household income", higher_is: "good", source: src, group: "Prosperity", description: `Median household income (${vintage}).`, lens: "income" }),
+    F("median_rent", "Rent", "eur", { unit: "median gross rent / month", source: src, group: "Prosperity", description: `Median gross rent per month (${vintage}).` }),
+    F("home_value", "Home value", "eur", { unit: "median home value", source: src, group: "Prosperity", description: `Median value of owner-occupied homes (${vintage}).`, lens: "home" }),
     F("affordability", "Home value ÷ income", "ratio", { unit: "years of income", higher_is: "bad", group: "Prosperity", description: "Median home value ÷ median household income: how many years of income a typical home costs.", derived: true }),
     F("rent_burden", "Rent ÷ income", "pct", { unit: "median rent × 12 ÷ median income", higher_is: "bad", source: src, group: "Prosperity", description: "Median rent × 12 ÷ median household income (a ratio of medians, not the share of renters who are burdened)." }),
     F("unemployment", "Unemployment", "pct", { unit: "unemployed ÷ labour force", higher_is: "bad", source: src, group: "Prosperity", description: `Unemployed ÷ civilian labour force (${vintage}, B23025).` }),
     F("employed", "Employed", "int", { unit: "employed residents", source: src, description: `Employed residents, where they live (${vintage}).` }),
-    ...(nation.yields || []).filter((y) => y.unit !== "usd").map((y) => F(`y_${y.key}`, `${y.label} workers`, "int", { unit: "workers", source: src, group: "Yields", description: y.description })),
+    ...(nation.yields || []).filter((y) => y.unit !== "eur").map((y) => F(`y_${y.key}`, `${y.label} workers`, "int", { unit: "workers", source: src, group: "Yields", description: y.description })),
   ];
   const rollupFields = () => counties ? [...ROLLUP.map((k) => {
     const f = counties.fields.find((x) => x.key === k);
@@ -165,7 +165,7 @@ export function buildData(app) {
     rent_burden: o.rent_burden ?? null,
     unemployment: o.unemployment ?? null,
     employed: o.employed ?? null,
-    ...Object.fromEntries((nation.yields || []).filter((y) => y.unit !== "usd").map((y) => [`y_${y.key}`, o.yields?.[y.key] ?? null])),
+    ...Object.fromEntries((nation.yields || []).filter((y) => y.unit !== "eur").map((y) => [`y_${y.key}`, o.yields?.[y.key] ?? null])),
   });
 
   // --- resources by place ---------------------------------------------------------------------------------------
@@ -358,7 +358,7 @@ function extendMilitary(data, mil) {
     F4("mil_guard_reserve", "Guard & Reserve", "int", { unit: "people", source: src.personnel, group: "Military", description: `National Guard and Reserve members by state (${v.personnel || "DMDC"}).` }),
     F4("mil_civilian", "DoD civilians", "int", { unit: "people", source: src.personnel, group: "Military", description: `Civilian Defense Department employees by duty state (${v.personnel || "DMDC"}).` }),
     F4("def_spending", "Defense spending", "money", { unit: "$ per year", source: src.spending, group: "Military", description: `Defense contracts, grants and payroll in the state (${v.spending || "OLDCC"}). Contracts follow the place of performance, not where bases are.` }),
-    F4("def_per_resident", "Defense $ per resident", "usd", { unit: "$ per resident", source: src.spending, group: "Military", description: `Defense spending ÷ residents, as published by OLDCC (${v.spending || "OLDCC"}).` }),
+    F4("def_per_resident", "Defense $ per resident", "eur", { unit: "$ per resident", source: src.spending, group: "Military", description: `Defense spending ÷ residents, as published by OLDCC (${v.spending || "OLDCC"}).` }),
     F4("def_pct_gdp", "Defense share of GDP", "pct", { unit: "of state GDP", source: src.spending, group: "Military", description: `Defense spending ÷ state GDP, as published by OLDCC (${v.spending || "OLDCC"}).` }),
     F4("installations", "Installations", "int", { unit: "MIRTA sites", source: "mirta", group: "Military", description: `Active, semi-active and caretaker DoD installations in the state (${v.installations || "MIRTA"}), by the state MIRTA files them under. Sizes are not comparable: a site can be an office or a training range.` }),
   ]);
@@ -392,7 +392,7 @@ function extendDistricts(data, d) {
     F4("districts", "Districts", "text", { source: "bls_qcew", group: "Districts", description: `Industry districts the metro qualifies for, strongest first. ${d.rule?.text || ""}` }),
     F4("n_districts", "Number of districts", "int", { source: "bls_qcew", group: "Districts", description: "How many districts pass the rule (up to 5)." }),
     F4("qcew_jobs", "Jobs (QCEW)", "int", { unit: "covered jobs, where the employer is", source: "bls_qcew", group: "Districts", description: `Annual average covered jobs, all ownerships, summed over member counties (${vint}). Counted where the employer is, unlike the ACS figures (where people live).` }),
-    F4("qcew_pay", "Average pay (QCEW)", "usd", { unit: "$ per job per year", source: "bls_qcew", group: "Districts", description: `Average annual pay per covered job (${vint}).` }),
+    F4("qcew_pay", "Average pay (QCEW)", "eur", { unit: "$ per job per year", source: "bls_qcew", group: "Districts", description: `Average annual pay per covered job (${vint}).` }),
     F4("top_industry", "Most specialised industry", "text", { source: "bls_qcew", group: "Districts", description: "The detailed industry (of those this project fetches) with the highest location quotient and at least 1,000 jobs." }),
     F4("top_lq", "Its location quotient", "lq", { unit: "× the national share of jobs", source: "bls_qcew", group: "Districts", description: "Location quotient of the most specialised industry: its share of the metro's jobs ÷ its share of US jobs. A lower bound where BLS withheld some counties." }),
   ]);

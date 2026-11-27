@@ -10,6 +10,7 @@
 // main.js assembles the full `app` (see its "extension API" section); the exact surface is documented there.
 import { parseHash, formatHash } from "./urlstate.js";
 import { icon } from "../ui/icon.js";
+import { t } from "../i18n.js";
 import { hasIcon } from "../icons.js";
 import { esc } from "../format.js";
 
@@ -394,12 +395,12 @@ export function createMapToggles({ dock, after, area, hash, onChange }) {
   // registered yet (an extension still loading) stay in the hash until their toggle arrives.
   let wanted = null;
 
-  const isOn = (t) => {
-    try { return !!t.get(); } catch (err) { console.error(`map toggle "${t.id}" get() failed`, err); return false; }
+  const isOn = (tg) => {
+    try { return !!tg.get(); } catch (err) { console.error(`map toggle "${tg.id}" get() failed`, err); return false; }
   };
-  const setOn = (t, on) => {
-    if (isOn(t) === !!on) return;
-    try { t.set(!!on); } catch (err) { console.error(`map toggle "${t.id}" set() failed`, err); }
+  const setOn = (tg, on) => {
+    if (isOn(tg) === !!on) return;
+    try { tg.set(!!on); } catch (err) { console.error(`map toggle "${tg.id}" set() failed`, err); }
   };
   const glyph = (ic, size) => (ic ? (hasIcon(ic) ? icon(ic, "•", { size }) : `<span class="emoji" aria-hidden="true">${esc(ic)}</span>`) : "");
 
@@ -408,20 +409,20 @@ export function createMapToggles({ dock, after, area, hash, onChange }) {
   function hashGet() {
     const list = [...toggles.values()];
     const waiting = pending();
-    if (!waiting.length && list.every((t) => isOn(t) === t.def)) return wanted && !list.length ? [...wanted].join(",") : null;
-    const on = [...list.filter(isOn).map((t) => t.id), ...waiting];
+    if (!waiting.length && list.every((tg) => isOn(tg) === tg.def)) return wanted && !list.length ? [...wanted].join(",") : null;
+    const on = [...list.filter(isOn).map((tg) => tg.id), ...waiting];
     return on.length ? on.join(",") : "none";
   }
   const parse = (v) => new Set(String(v).split(",").map((s) => s.trim()).filter(Boolean));
   function hashSet(v) {
     wanted = v == null ? null : parse(v);
-    for (const t of toggles.values()) setOn(t, wanted ? wanted.has(t.id) : t.def);
+    for (const tg of toggles.values()) setOn(tg, wanted ? wanted.has(tg.id) : tg.def);
     render();
     onChange?.();
   }
   // After a change in the menu the URL follows the switches (plus ids still waiting for their toggle).
   const syncWanted = () => {
-    if (wanted) wanted = new Set([...[...toggles.values()].filter(isOn).map((t) => t.id), ...pending()]);
+    if (wanted) wanted = new Set([...[...toggles.values()].filter(isOn).map((tg) => tg.id), ...pending()]);
   };
   hash.register("layers", { get: hashGet, set: hashSet });
 
@@ -434,22 +435,22 @@ export function createMapToggles({ dock, after, area, hash, onChange }) {
     btn.setAttribute("aria-haspopup", "true");
     btn.setAttribute("aria-expanded", "false");
     btn.setAttribute("aria-controls", "map-layers-pop");
-    btn.title = "Map layers: roads, rail, military and more";
+    btn.title = t("Map layers: roads, rail, military and more");
     dock.insertBefore(btn, after && after.parentNode === dock ? after.nextSibling : dock.firstChild);
     pop = document.createElement("div");
     pop.id = "map-layers-pop";
     pop.className = "panel map-layers-pop";
     pop.hidden = true;
     pop.setAttribute("role", "menu");
-    pop.setAttribute("aria-label", "Map layers");
+    pop.setAttribute("aria-label", t("Map layers"));
     (area || document.body).insertBefore(pop, (area || document.body).firstChild);
     btn.onclick = () => (pop.hidden ? open() : close());
     pop.onclick = (e) => {
       const row = e.target.closest("[data-toggle]");
       if (!row) return;
-      const t = toggles.get(row.dataset.toggle);
-      if (!t) return;
-      setOn(t, !isOn(t));
+      const tg = toggles.get(row.dataset.toggle);
+      if (!tg) return;
+      setOn(tg, !isOn(tg));
       syncWanted();
       render();
       onChange?.();
@@ -475,13 +476,13 @@ export function createMapToggles({ dock, after, area, hash, onChange }) {
     btn.hidden = !list.length;
     const nOn = list.filter(isOn).length;
     btn.classList.toggle("active", nOn > 0);
-    btn.setAttribute("aria-label", `Map layers (${nOn} of ${list.length} on)`);
-    btn.innerHTML = `${glyph("terrain", 15)}<span>Map</span>${nOn ? `<b class="ml-count">${nOn}</b>` : ""}`;
+    btn.setAttribute("aria-label", t("Map layers ({on} of {total} on)", { on: nOn, total: list.length }));
+    btn.innerHTML = `${glyph("terrain", 15)}<span>${esc(t("Map"))}</span>${nOn ? `<b class="ml-count">${nOn}</b>` : ""}`;
     if (pop.hidden) return;
-    pop.innerHTML = `<div class="ml-head">Map layers</div>` + list.map((t) => {
-      const on = isOn(t);
-      return `<button type="button" class="ml-row${on ? " on" : ""}" role="menuitemcheckbox" aria-checked="${on}" data-toggle="${esc(t.id)}"
-        ${t.title ? `title="${esc(t.title)}"` : ""}><span class="ml-ic">${glyph(t.icon, 16)}</span><span class="ml-lbl">${esc(t.label)}</span>
+    pop.innerHTML = `<div class="ml-head">${esc(t("Map layers"))}</div>` + list.map((tg) => {
+      const on = isOn(tg);
+      return `<button type="button" class="ml-row${on ? " on" : ""}" role="menuitemcheckbox" aria-checked="${on}" data-toggle="${esc(tg.id)}"
+        ${tg.title ? `title="${esc(tg.title)}"` : ""}><span class="ml-ic">${glyph(tg.icon, 16)}</span><span class="ml-lbl">${esc(tg.label)}</span>
         <span class="ml-switch" aria-hidden="true"></span></button>`;
     }).join("");
   }
@@ -504,18 +505,18 @@ export function createMapToggles({ dock, after, area, hash, onChange }) {
 
   function add({ id, label, icon: ic = "", get, set, title = "", default: def } = {}) {
     if (!id || typeof get !== "function" || typeof set !== "function") throw new Error("addMapToggle({id, label, icon, get, set})");
-    const t = { id: String(id), label: label || String(id), icon: ic, title, get, set, def: false };
-    t.def = def === undefined ? isOn(t) : !!def;
-    toggles.set(t.id, t);
+    const tg = { id: String(id), label: label || String(id), icon: ic, title, get, set, def: false };
+    tg.def = def === undefined ? isOn(tg) : !!def;
+    toggles.set(tg.id, tg);
     ensureDom();
     if (wanted) {
-      setOn(t, wanted.has(t.id));
+      setOn(tg, wanted.has(tg.id));
       onChange?.();
     }
     render();
     return () => {
-      if (toggles.get(t.id) !== t) return;
-      toggles.delete(t.id);
+      if (toggles.get(tg.id) !== tg) return;
+      toggles.delete(tg.id);
       render();
       hash.update();
     };
@@ -523,9 +524,9 @@ export function createMapToggles({ dock, after, area, hash, onChange }) {
 
   /** Switch a toggle from code (e.g. an advisor's "show forts" button), exactly as the menu would. false if unknown. */
   function setToggle(id, on) {
-    const t = toggles.get(String(id));
-    if (!t) return false;
-    setOn(t, !!on);
+    const tg = toggles.get(String(id));
+    if (!tg) return false;
+    setOn(tg, !!on);
     syncWanted();
     render();
     onChange?.();
@@ -536,7 +537,7 @@ export function createMapToggles({ dock, after, area, hash, onChange }) {
   return {
     add,
     set: setToggle,
-    list: () => [...toggles.values()].map((t) => ({ id: t.id, label: t.label, on: isOn(t) })),
+    list: () => [...toggles.values()].map((tg) => ({ id: tg.id, label: tg.label, on: isOn(tg) })),
     close,
     get isOpen() { return !!pop && !pop.hidden; },
     refresh: render,

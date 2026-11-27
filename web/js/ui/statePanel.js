@@ -1,5 +1,6 @@
 import { css } from "../color.js";
 import { esc, popShort } from "../format.js";
+import { t, placeName } from "../i18n.js";
 import { isCapital } from "../world.js";
 import { yieldGrid, amenities, industries, gdpRow, popLine, growthSpan, showPanel } from "./infoPanel.js";
 
@@ -15,7 +16,7 @@ export function openStatePanel(idx, ctx) {
   let st = ctx.states?.[idx];
   if (st && geo.fips && st.fips && st.fips !== geo.fips) st = ctx.states.find((s) => s.fips === geo.fips);
   st = st || { ...geo };
-  const name = st.name || geo.name || "State";
+  const name = placeName(geo.name ? geo : st) || t("District");
   const abbr = st.abbr || geo.abbr || "";
   const count = ctx.states?.length || w.raw.states.length;
 
@@ -24,28 +25,29 @@ export function openStatePanel(idx, ctx) {
     ? `<div class="city-list">${cities
         .map((c) => {
           const multi = (c.states || []).length > 1 ? `<span class="muted"> · ${esc(c.states.join("–"))}</span>` : "";
-          return `<button class="city-row" data-city="${esc(c.id)}" title="${esc(c.full || c.name)}">
-            <span class="cr-name">${isCapital(c) ? "★ " : ""}${esc(c.name)}${multi}</span>
+          return `<button class="city-row" data-city="${esc(c.id)}" title="${esc(placeName(c.full ? { name: c.full, name_lat: c.full_lat } : c))}">
+            <span class="cr-name">${isCapital(c) ? "★ " : ""}${esc(placeName(c))}${multi}</span>
             <span class="cr-pop">${popShort(c.population)}</span><span class="cr-go" aria-hidden="true">›</span></button>`;
         })
         .join("")}</div>`
-    : `<p class="muted">No metro or micro areas in this state's data.</p>`;
+    : `<p class="muted">${esc(t("No cities in this district's data."))}</p>`;
 
   const hasEcon = st.population != null || st.yields;
   showPanel({
     kind: "state",
     stripe: css(w.stateColor[idx] || [190, 190, 190]),
     title: name,
-    sub: `${esc(abbr)}${geo.fips ? ` · FIPS ${esc(geo.fips)}` : ""}`,
+    sub: `${esc(abbr)}${geo.fips ? ` · ${esc(t("code {code}", { code: geo.fips }))}` : ""}`,
     headExtra: hasEcon ? popLine(st, growthSpan(st, n)) : "",
     sections: [
-      st.yields && { title: "Yields · rank among states", html: `<div class="yield-grid">${yieldGrid(nation, st.yields, st.ranks, count)}</div>` },
-      hasEcon && { title: "Amenities &amp; Housing", html: amenities(st, n) + gdpRow(st) },
-      st.jobs && { title: "Top industries · where people work", html: industries(st, nation, 8) },
-      { title: "Biggest cities", html: cityRows },
-      !hasEcon && { title: "Data", html: `<p class="muted">State statistics are not in this data build (states.json is missing).</p>` },
+      st.yields && { title: esc(t("Yields · rank among districts")), html: `<div class="yield-grid">${yieldGrid(nation, st.yields, st.ranks, count)}</div>` },
+      hasEcon && { title: esc(t("Amenities & Housing")), html: amenities(st, n) + gdpRow(st) },
+      st.jobs && { title: esc(t("Top industries · where people work")), html: industries(st, nation, 8) },
+      { title: esc(t("Biggest cities")), html: cityRows },
+      !hasEcon && { title: esc(t("Data")), html: `<p class="muted">${esc(t("District statistics are not in this data build (states.json is missing)."))}</p>` },
     ],
-    foot: `Source: ${esc(nation.vintage)}${nation.gdp_vintage ? `; GDP: ${esc(nation.gdp_vintage)}` : ""}. Ranks are among the ${count} mapped states + DC (1 = largest).`,
+    foot: `${esc(nation.gdp_vintage ? t("Source: {source}; GDP: {gdp}.", { source: nation.vintage, gdp: nation.gdp_vintage }) : t("Source: {source}.", { source: nation.vintage }))}
+      ${esc(t("Ranks are among the {n} mapped districts (1 = largest).", { n: count }))}`,
     onClose: ctx.onClose,
     onPedia: ctx.onPedia,
     wire(panel) {

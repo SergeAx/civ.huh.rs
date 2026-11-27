@@ -11,7 +11,7 @@ import { frameBox, focusPoint } from "../core/frame.js";
 // dark copper pipeline drawn dashed).
 const MODE_COLOR = { truck: "#d9a457", rail: "#a3acb8", water: "#4f9ad6", air: "#c9a0e0", multiple: "#8fcbb8", pipeline: "#b0703e", other: "#9a9aa8" };
 const PORT_COLOR = "#4f9ad6", AIR_COLOR = "#e6cf86";
-const MUSD = 1e6; // trade.json values are million dollars
+const MUSD = 1e6; // trade.json values are million euros
 
 export async function mount(ctx) {
   const { app, el, link, data } = ctx;
@@ -32,7 +32,7 @@ export async function mount(ctx) {
     { label: "Domestic freight", value: fin(nm.domestic) ? money(nm.domestic * MUSD) : "–", sub: `${esc(trade?.vintage || "FAF")} · by value` },
     { label: "Busiest port", value: topPort ? `${count3(topPort.tons)} t` : "–", sub: topPort ? topPort.name : "" },
     { label: "Busiest airport", value: topAir ? count3(topAir.enplanements) : "–", sub: topAir ? `${topAir.id} boardings ${topAir.year}` : "" },
-  ]) + (trade ? `<p class="adv-callout">Freight values are model estimates from the Freight Analysis Framework, in current dollars: what moves between places, not what each place produces. Imports ${money(nm.import * MUSD)} and exports ${money(nm.export * MUSD)} are counted separately.</p>` : ""));
+  ]) + (trade ? `<p class="adv-callout">Freight values are model estimates from the Freight Analysis Framework, in current euros: what moves between places, not what each place produces. Imports ${money(nm.import * MUSD)} and exports ${money(nm.export * MUSD)} are counted separately.</p>` : ""));
 
   // --- trade routes ---------------------------------------------------------------------------------------------
   let routes = [], zoneById = new Map(), routeCells = new Map(), overlayOff = null;
@@ -353,7 +353,7 @@ export async function mount(ctx) {
   }
 
   el.insertAdjacentHTML("beforeend", sourcesHtml(data, [...(trade?.sources || []), ...(infra?.sources || [])], [
-    "FAF values are model estimates for 2024 in current dollars and thousand short tons; zones are whole metro areas or the rest of a state, so a route between two cities stands for everything moving between their regions.",
+    "FAF values are model estimates for 2024 in current euros and thousand short tons; zones are whole metro areas or the rest of a state, so a route between two cities stands for everything moving between their regions.",
     "Routes count only flows between zones in different states; the drawn line follows mapped highways as a drawing aid (FAF assigns no route). Pipeline routes carry crude oil or gas.",
     "Rest-of-state zones are drawn from their largest city, though the flow comes from the whole region.",
     "Port tonnage is calendar 2023 (USACE), two years older than the airport counts (FAA 2025). Port positions are port-area centroids, so long river ports are approximate.",

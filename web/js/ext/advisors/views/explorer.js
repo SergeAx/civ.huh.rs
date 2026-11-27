@@ -183,7 +183,7 @@ export async function mount(ctx) {
     const syncOps = () => {
       const f = L().field(fsel.value);
       ops.innerHTML = (numeric(f) ? OPS.num : OPS.text).map((o) => `<option>${esc(o)}</option>`).join("");
-      valIn.placeholder = numeric(f) ? (f.format === "pct" || f.format === "signed" ? "e.g. 25%" : f.format === "usd" || f.format === "money" ? "e.g. 80K" : "e.g. 1M") : st.level === "counties" ? "e.g. TX" : "text";
+      valIn.placeholder = numeric(f) ? (f.format === "pct" || f.format === "signed" ? "e.g. 25%" : f.format === "eur" || f.format === "money" ? "e.g. 80K" : "e.g. 1M") : st.level === "counties" ? "e.g. TX" : "text";
     };
     fsel.select.addEventListener("change", syncOps);
     syncOps();

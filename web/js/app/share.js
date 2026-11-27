@@ -1,11 +1,13 @@
 // Share popover: copy a link to the current view, or download a 1600×900 PNG of it with a caption strip.
 import { drawIcon, hasIcon } from "../icons.js";
 import { icon } from "../ui/icon.js";
+import { esc } from "../format.js";
+import { t } from "../i18n.js";
 
-// The address printed on shared images. Set it to the published site (e.g. "example.com/us-atlas"); when left
+// The address printed on shared images. Set it to the published site (e.g. "example.com/atlas"); when left
 // empty, the page's own host and path are used, except on a local dev server, where SITE_FALLBACK is printed.
-export const SITE_URL = "karpathy.ai/usaciv";
-const SITE_FALLBACK = "usaciv";
+export const SITE_URL = "civ.huh.rs";
+const SITE_FALLBACK = "civ.huh.rs";
 
 export function siteLabel() {
   if (SITE_URL) return SITE_URL;
@@ -25,7 +27,7 @@ export const IMG_H = 900;
 export const CAPTION_H = 118;
 const SERIF = '"Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif';
 const SANS = '-apple-system, "Segoe UI", system-ui, sans-serif';
-const CREDIT = "Data: Census ACS, BEA, NOAA, USGS/MRLC, EIA, Natural Earth";
+const CREDIT = t("Data: RZS, Kosovo Agency of Statistics, RGZ, CORINE, ETOPO, OpenStreetMap, Natural Earth");
 
 async function copyText(text) {
   try {
@@ -115,11 +117,11 @@ export function composeImage(info, { height = IMG_H } = {}) {
   ctx.fillStyle = "#ecd08e";
   ctx.font = `bold 36px ${SERIF}`;
   spaced(ctx, 5);
-  ctx.fillText("UNITED STATES", 112, cy + 2);
+  ctx.fillText(t("Serbia").toUpperCase(), 112, cy + 2);
   spaced(ctx, 0);
   ctx.fillStyle = "#b9ab88";
   ctx.font = `italic 17px ${SERIF}`;
-  ctx.fillText("A strategy-map atlas of the real economy", 114, cy + 28);
+  ctx.fillText(t("A strategy-map atlas of the real economy"), 114, cy + 28);
 
   // Lens + legend ramp
   const mx = 640;
@@ -130,7 +132,7 @@ export function composeImage(info, { height = IMG_H } = {}) {
   ctx.fillStyle = "#ecd08e";
   ctx.font = `24px ${SERIF}`;
   spaced(ctx, 1.5);
-  ctx.fillText((lens ? lens.name : "Terrain").toUpperCase() + (lens ? " LENS" : ""), mx + 50, cy - 8);
+  ctx.fillText((lens ? t("{name} lens", { name: lens.name }) : t("Terrain")).toUpperCase(), mx + 50, cy - 8);
   spaced(ctx, 0);
   if (lens?.ramp?.length) {
     const rx = mx + 50, ry = cy + 4, rw = 330, rh = 12;
@@ -150,7 +152,7 @@ export function composeImage(info, { height = IMG_H } = {}) {
   } else {
     ctx.font = `15px ${SANS}`;
     ctx.fillStyle = "#b9ab88";
-    ctx.fillText("Land cover, relief, rivers and resources", mx + 50, cy + 16);
+    ctx.fillText(t("Land cover, relief, rivers and resources"), mx + 50, cy + 16);
   }
 
   // Selection, credits, site
@@ -161,7 +163,7 @@ export function composeImage(info, { height = IMG_H } = {}) {
     ctx.font = `13px ${SANS}`;
     ctx.fillStyle = "#b9ab88";
     spaced(ctx, 2);
-    ctx.fillText(sel.kind === "state" ? "STATE" : "CITY", rx, cy - 30);
+    ctx.fillText((sel.kind === "state" ? t("District") : t("City")).toUpperCase(), rx, cy - 30);
     spaced(ctx, 0);
     ctx.font = `bold 24px ${SERIF}`;
     ctx.fillStyle = "#f3e6c4";
@@ -186,9 +188,9 @@ export function composeImage(info, { height = IMG_H } = {}) {
 
 function fit(ctx, text, maxW) {
   if (ctx.measureText(text).width <= maxW) return text;
-  let t = text;
-  while (t.length > 3 && ctx.measureText(t + "…").width > maxW) t = t.slice(0, -1);
-  return t + "…";
+  let s = text;
+  while (s.length > 3 && ctx.measureText(s + "…").width > maxW) s = s.slice(0, -1);
+  return s + "…";
 }
 
 function star(ctx, x, y, R, r, color) {
@@ -213,11 +215,11 @@ export function initShare(opts) {
   let restore = null;
 
   pop.innerHTML = `
-    <div class="sp-title">Share this view</div>
-    <button class="sp-item" data-act="copy">${icon("share", "🔗", { size: 16 })}<span>Copy link</span></button>
-    <button class="sp-item" data-act="image">${icon("terrain", "🖼️", { size: 16 })}<span>Download image <span class="muted">1600×900 PNG</span></span></button>
+    <div class="sp-title">${esc(t("Share this view"))}</div>
+    <button class="sp-item" data-act="copy">${icon("share", "🔗", { size: 16 })}<span>${esc(t("Copy link"))}</span></button>
+    <button class="sp-item" data-act="image">${icon("terrain", "🖼️", { size: 16 })}<span>${esc(t("Download image"))} <span class="muted">1600×900 PNG</span></span></button>
     <div class="sp-status" role="status" aria-live="polite"></div>
-    <input class="sp-url" type="text" readonly hidden aria-label="Link to this view">`;
+    <input class="sp-url" type="text" readonly hidden aria-label="${esc(t("Link to this view"))}">`;
   const status = pop.querySelector(".sp-status");
   const urlBox = pop.querySelector(".sp-url");
 
@@ -255,17 +257,17 @@ export function initShare(opts) {
       opts.beforeCopy?.();
       const link = location.href;
       if (await copyText(link)) {
-        status.textContent = "Link copied to the clipboard";
-        opts.onToast?.("Link copied");
+        status.textContent = t("Link copied to the clipboard");
+        opts.onToast?.(t("Link copied"));
       } else {
-        status.textContent = "Copy this link:";
+        status.textContent = t("Copy this link:");
         urlBox.hidden = false;
         urlBox.value = link;
         urlBox.focus();
         urlBox.select();
       }
     } else if (b.dataset.act === "image") {
-      status.textContent = "Drawing the map…";
+      status.textContent = t("Drawing the map…");
       await new Promise((r) => setTimeout(r, 30)); // let the status paint
       try {
         const cv = composeImage(opts.getInfo());
@@ -278,10 +280,10 @@ export function initShare(opts) {
         a.click();
         a.remove();
         setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-        status.textContent = `Saved ${a.download}`;
+        status.textContent = t("Saved {file}", { file: a.download });
       } catch (err) {
         console.warn(err);
-        status.textContent = "Could not create the image in this browser.";
+        status.textContent = t("Could not create the image in this browser.");
       }
     }
   });

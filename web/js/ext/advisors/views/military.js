@@ -1,7 +1,7 @@
-// Military advisor ("General"): DoD installations and ranges (MIRTA), troops by state (DMDC), defense dollars by state
+// Military advisor ("General"): DoD installations and ranges (MIRTA), troops by state (DMDC), defense euros by state
 // (OLDCC), garrison metros, and veterans and armed-forces residents by county (ACS, counties.json).
 import { esc, fin, el as mk } from "../core/util.js";
-import { int, pct, money, count3, dollars } from "../core/fmt.js";
+import { int, pct, money, count3, euros } from "../core/fmt.js";
 import { stackedBars, sizeLegend, swatchLegend } from "../core/charts.js";
 import { createTable } from "../core/table.js";
 import { section, tiles, chips, segmented, mapPicker, sourcesHtml } from "../core/view.js";
@@ -72,7 +72,7 @@ export async function mount(ctx) {
     description: "Active-duty service members among residents aged 16+, by county, counted where they live (ACS 5-year B23025). Each hex takes the county at its centre.",
   });
   const perResLens = () => stateLens(data, "def-per-resident", (abbr) => mil.states?.[abbr]?.spending?.per_resident ?? null, {
-    name: "Defense $ per resident", emoji: "💵", format: "usd", unit: "$ per resident", ramp: SPEND_RAMP, source: "oldcc_spending",
+    name: "Defense $ per resident", emoji: "💵", format: "eur", unit: "$ per resident", ramp: SPEND_RAMP, source: "oldcc_spending",
     description: `Defense contracts, grants and payroll per resident, by state (${vint.spending || "OLDCC"}). Contracts follow the place of performance.`,
   });
   mapPicker(ctx, mapRow, {
@@ -81,7 +81,7 @@ export async function mount(ctx) {
       { value: "terrain", label: "Terrain", lens: () => null },
       ...(app.lensById?.get("veterans") ? [{ value: "veterans", label: "Veterans", lens: () => "veterans" }] : []),
       ...(counties ? [{ value: "af", label: "Troops at home", lens: afLens }] : []),
-      { value: "dollars", label: "$ per resident", lens: perResLens },
+      { value: "euros", label: "$ per resident", lens: perResLens },
     ],
   });
 
@@ -147,7 +147,7 @@ export async function mount(ctx) {
 
   // --- by state -------------------------------------------------------------------------------------------------
   const sBody = section(el, {
-    title: "Troops and dollars by state",
+    title: "Troops and euros by state",
     note: `Personnel by duty state (${esc(vint.personnel || "DMDC")}); spending by place of performance (${esc(vint.spending || "OLDCC")}). Click a state to see its detail and filter the bases to it.`,
   });
   const sCtl = mk("div", "adv-row");
@@ -155,7 +155,7 @@ export async function mount(ctx) {
   let metric = "troops", showAll = false;
   segmented(sCtl, {
     label: "Measure", value: metric,
-    options: [{ value: "troops", label: "Troops" }, { value: "dollars", label: "Dollars" }, { value: "perres", label: "Per resident" }, { value: "gdp", label: "% of GDP" }],
+    options: [{ value: "troops", label: "Troops" }, { value: "euros", label: "Dollars" }, { value: "perres", label: "Per resident" }, { value: "gdp", label: "% of GDP" }],
     onChange: (v) => { metric = v; drawStates(); },
   });
   const allBtn = mk("button", "adv-mini");
@@ -175,12 +175,12 @@ export async function mount(ctx) {
       parts: (s) => ({ active: s.personnel?.active?.total, guard: s.personnel?.guard_reserve?.total, civ: s.personnel?.civilian?.total }),
       total: (s) => s.personnel?.total, fmt: count3,
     },
-    dollars: {
+    euros: {
       keys: [{ key: "contracts", label: "Contracts", color: "#d9a457" }, { key: "payroll", label: "Payroll", color: "#6f91ad" }, { key: "grants", label: "Grants", color: "#8fcbb8" }],
       parts: (s) => ({ contracts: s.spending?.contracts, payroll: s.spending?.payroll, grants: s.spending?.grants }),
       total: (s) => s.spending?.total, fmt: money,
     },
-    perres: { keys: [{ key: "v", label: "$ per resident", color: "#d9a457" }], parts: (s) => ({ v: s.spending?.per_resident }), total: (s) => s.spending?.per_resident, fmt: dollars },
+    perres: { keys: [{ key: "v", label: "$ per resident", color: "#d9a457" }], parts: (s) => ({ v: s.spending?.per_resident }), total: (s) => s.spending?.per_resident, fmt: euros },
     gdp: { keys: [{ key: "v", label: "Share of state GDP", color: "#c46a4f" }], parts: (s) => ({ v: s.spending?.pct_gdp }), total: (s) => s.spending?.pct_gdp, fmt: (v) => pct(v) },
   };
   const milStates = Object.entries(mil.states || {}).filter(([, s]) => s);
@@ -218,13 +218,13 @@ export async function mount(ctx) {
       <h4 class="adv-h4">${esc(stateName(abbr))}</h4>
       ${tiles([
         { label: "Active duty", value: p ? int(p.active?.total) : "–", sub: p ? `${int(p.guard_reserve?.total)} Guard & Reserve` : "no DMDC figure" },
-        { label: "Defense $", value: sp ? money(sp.total) : "–", sub: sp ? `${pct(sp.pct_gdp)} of GDP · ${dollars(sp.per_resident)}/resident` : "no OLDCC figure" },
+        { label: "Defense $", value: sp ? money(sp.total) : "–", sub: sp ? `${pct(sp.pct_gdp)} of GDP · ${euros(sp.per_resident)}/resident` : "no OLDCC figure" },
         { label: "Installations", value: int(nInst), sub: "MIRTA sites filed here" },
       ])}
       ${p ? `<p class="adv-note"><b>Active duty by service:</b> ${branch.filter(([, v]) => fin(v) && v > 0).map(([k, v]) => `${esc(k)} ${int(v)}`).join(" · ")}. DoD civilians: ${int(p.civilian?.total)}.</p>` : ""}
       ${sp ? `<p class="adv-note"><b>Where the money goes:</b> contracts ${money(sp.contracts)}, payroll ${money(sp.payroll)}, grants ${money(sp.grants)}.</p>` : ""}
       ${sp?.top_vendors?.length ? `<p class="adv-note"><b>Top contractors:</b> ${sp.top_vendors.map((v) => `${esc(v.name)} ${money(v.contracts)}`).join(" · ")}</p>` : ""}
-      ${sp?.top_counties?.length ? `<h4 class="adv-h4">Contract dollars by county</h4><div class="adv-chiplist">${sp.top_counties.map((c, i) => `<button type="button" class="adv-mini" data-county="${i}"${c.county ? "" : " disabled title=\"Not a county on the map (old Connecticut counties, Alaska, Hawaii)\""}>${esc(c.name)} <b>${money(c.contracts)}</b></button>`).join("")}</div>` : ""}
+      ${sp?.top_counties?.length ? `<h4 class="adv-h4">Contract euros by county</h4><div class="adv-chiplist">${sp.top_counties.map((c, i) => `<button type="button" class="adv-mini" data-county="${i}"${c.county ? "" : " disabled title=\"Not a county on the map (old Connecticut counties, Alaska, Hawaii)\""}>${esc(c.name)} <b>${money(c.contracts)}</b></button>`).join("")}</div>` : ""}
     </div>`;
     detail.querySelectorAll("[data-county]").forEach((b) => {
       const c = sp.top_counties[+b.dataset.county];

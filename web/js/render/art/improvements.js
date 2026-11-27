@@ -20,6 +20,7 @@
 //   routeArc(grid, cellA, cellB, bow) → arc               the trade-route arc geometry (for advisors drawing the same)
 //   drawTradeMarker(ctx, kind, x, y, sizePx)              the medallion marker (screen units)
 import { bucketPx, deviceScale, getSprite, drawSprite } from "./sprites.js";
+import { t } from "../../i18n.js";
 
 const H = Math.sqrt(3) / 2; // edge-midpoint distance in hex radii
 const TILE_KM = 300;
@@ -67,14 +68,14 @@ function buildPieces(w, links, classes, offsetOf = null) {
   for (const [i, list] of byCell) {
     const cx = grid.cx(i), cy = grid.cy(i);
     const key = `${Math.floor(cx / TILE_KM)},${Math.floor(cy / TILE_KM)}`;
-    let t = tiles.get(key);
-    if (!t) tiles.set(key, (t = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity, paths: {} }));
-    t.x0 = Math.min(t.x0, cx - R); t.y0 = Math.min(t.y0, cy - R);
-    t.x1 = Math.max(t.x1, cx + R); t.y1 = Math.max(t.y1, cy + R);
+    let tile = tiles.get(key);
+    if (!tile) tiles.set(key, (tile = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity, paths: {} }));
+    tile.x0 = Math.min(tile.x0, cx - R); tile.y0 = Math.min(tile.y0, cy - R);
+    tile.x1 = Math.max(tile.x1, cx + R); tile.y1 = Math.max(tile.y1, cy + R);
     for (const cls of classes) {
       const mine = list.filter((p) => p.cls === cls);
       if (!mine.length) continue;
-      const p = t.paths[cls] || (t.paths[cls] = new Path2D());
+      const p = tile.paths[cls] || (tile.paths[cls] = new Path2D());
       // end of a piece: the shared edge midpoint (+ the link's sideways shift); hub: the centre + the mean shift
       const ends = mine.map((q) => [cx + R * H * DIR_COS[q.d] + q.vx, cy + R * H * DIR_SIN[q.d] + q.vy]);
       let hx = 0, hy = 0;
@@ -114,15 +115,15 @@ export function prepareNetwork(w, infra) {
 
 function visibleTiles(tiles, vp, pad) {
   const out = [];
-  for (const t of tiles) {
-    if (t.x1 < vp.x0 - pad || t.x0 > vp.x1 + pad || t.y1 < vp.y0 - pad || t.y0 > vp.y1 + pad) continue;
-    out.push(t);
+  for (const tile of tiles) {
+    if (tile.x1 < vp.x0 - pad || tile.x0 > vp.x1 + pad || tile.y1 < vp.y0 - pad || tile.y0 > vp.y1 + pad) continue;
+    out.push(tile);
   }
   return out;
 }
 
 function strokeAll(ctx, tiles, cls) {
-  for (const t of tiles) if (t.paths[cls]) ctx.stroke(t.paths[cls]);
+  for (const tile of tiles) if (tile.paths[cls]) ctx.stroke(tile.paths[cls]);
 }
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -257,8 +258,8 @@ function inkStroke(g, upx, wPx = 1.1, col = "rgba(28,20,10,.9)") {
 
 /** 0: 100M+ short tons, 1: 25–100M, 2: under 25M (the research's tonnage tiers). */
 export function portTier(p) {
-  const t = p?.tons;
-  return t == null ? 2 : t >= 1e8 ? 0 : t >= 2.5e7 ? 1 : 2;
+  const tons = p?.tons;
+  return tons == null ? 2 : tons >= 1e8 ? 0 : tons >= 2.5e7 ? 1 : 2;
 }
 
 /**
@@ -483,13 +484,13 @@ function paintAirport(g, upx, tier) {
 /** Per FAF mode: line colour (saturated, to read on any terrain over a parchment halo), dash pattern (in line widths;
  * null = solid), marker kind and a label. */
 export const MODE_STYLE = {
-  truck: { color: "#ee8a1e", dash: [2.4, 1.1], marker: "cart", label: "Truck" },
-  rail: { color: "#d2402f", dash: [3.2, 0.9], marker: "rail", label: "Rail" },
-  water: { color: "#1f8ad2", dash: [2.4, 1.1], marker: "boat", label: "Water" },
-  air: { color: "#18a99a", dash: [1.4, 1.2], marker: "plane", label: "Air" },
-  multiple: { color: "#9b4fd0", dash: [2.4, 1.1], marker: "cart", label: "Multiple modes" },
-  pipeline: { color: "#3a3430", dash: null, dots: "#f0a830", marker: "barrel", label: "Pipeline" },
-  other: { color: "#7d7466", dash: [1.6, 1.4], marker: "cart", label: "Other / unknown" },
+  truck: { color: "#ee8a1e", dash: [2.4, 1.1], marker: "cart", label: t("Truck") },
+  rail: { color: "#d2402f", dash: [3.2, 0.9], marker: "rail", label: t("Rail") },
+  water: { color: "#1f8ad2", dash: [2.4, 1.1], marker: "boat", label: t("Waterway") },
+  air: { color: "#18a99a", dash: [1.4, 1.2], marker: "plane", label: t("Air") },
+  multiple: { color: "#9b4fd0", dash: [2.4, 1.1], marker: "cart", label: t("Multiple modes") },
+  pipeline: { color: "#3a3430", dash: null, dots: "#f0a830", marker: "barrel", label: t("Pipeline") },
+  other: { color: "#7d7466", dash: [1.6, 1.4], marker: "cart", label: t("Other / unknown") },
 };
 
 export const TOP_ROUTES = 10; // drawn wider and fully opaque; the rest thinner and lighter
@@ -508,9 +509,9 @@ export function routeArc(grid, ca, cb, bow = 0.16) {
   const N = 32;
   const pts = new Float64Array((N + 1) * 2);
   for (let k = 0; k <= N; k++) {
-    const t = k / N, u = 1 - t;
-    pts[2 * k] = u * u * ax + 2 * u * t * qx + t * t * bx;
-    pts[2 * k + 1] = u * u * ay + 2 * u * t * qy + t * t * by;
+    const f = k / N, u = 1 - f;
+    pts[2 * k] = u * u * ax + 2 * u * f * qx + f * f * bx;
+    pts[2 * k + 1] = u * u * ay + 2 * u * f * qy + f * f * by;
   }
   let len = 0;
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
@@ -564,9 +565,9 @@ export function routeWidth(rt, Rpx) {
   return base * (rt.top ? 1.1 + 1.0 * rt.weight : 0.55 + 0.5 * rt.weight);
 }
 
-// Point at fraction t along the polyline.
-function along(pts, len, t) {
-  let goal = len * t;
+// Point at fraction `frac` along the polyline.
+function along(pts, len, frac) {
+  let goal = len * frac;
   for (let k = 2; k < pts.length; k += 2) {
     const l = Math.hypot(pts[k] - pts[k - 2], pts[k + 1] - pts[k - 1]);
     if (goal <= l || k === pts.length - 2) {
@@ -687,8 +688,8 @@ export function hitRoute(routes, x, y, Rpx, s) {
 function segDist(px, py, ax, ay, bx, by) {
   const dx = bx - ax, dy = by - ay;
   const l2 = dx * dx + dy * dy;
-  const t = l2 ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / l2)) : 0;
-  return Math.hypot(px - ax - t * dx, py - ay - t * dy);
+  const f = l2 ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / l2)) : 0;
+  return Math.hypot(px - ax - f * dx, py - ay - f * dy);
 }
 
 /** A round marker for a route: a bronze-rimmed disk with a cart, boat, train, plane or barrel. Screen units. */

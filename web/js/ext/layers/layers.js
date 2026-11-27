@@ -11,6 +11,7 @@ import { drawRoads, drawRail, drawPort, drawAirport, drawTradeRoutes, hitRoute, 
 import { drawFort, drawRestricted, drawProtected, drawWonder, drawPlaque } from "../../render/art/sites.js";
 import { visibleSites, siteSize, hitSites } from "./model.js";
 import { esc } from "../../format.js";
+import { t, placeName } from "../../i18n.js";
 
 const inVp = (it, vp, padKm) => it.x > vp.x0 - padKm && it.x < vp.x1 + padKm && it.y > vp.y0 - padKm && it.y < vp.y1 + padKm;
 
@@ -33,8 +34,10 @@ export function makeLayers(model, on, { tips = {}, app = null } = {}) {
   const moved = (it, html) => {
     if (!html || !it.nudged || typeof html !== "string") return html;
     const city = m.w.cityByCell.get(it.cell);
-    const where = city ? `${esc(city.name)}'s city hex` : "a city hex";
-    return `${html}<br><span class="muted">Drawn on the next hex so it stays visible; its true location falls in ${where}.</span>`;
+    const note = city
+      ? t("Drawn on the next hex so it stays visible; its true location is in the hex of {city}.", { city: placeName(city) })
+      : t("Drawn on the next hex so it stays visible; its true location is in a city hex.");
+    return `${html}<br><span class="muted">${esc(note)}</span>`;
   };
   const ver = () => `v${m.version}`;
   const grid = () => m.w.grid;
@@ -174,7 +177,7 @@ export function makeLayers(model, on, { tips = {}, app = null } = {}) {
       const x = m.w.grid.cx(cell), y = m.w.grid.cy(cell);
       if (x < vp.x0 - pad || x > vp.x1 + pad || y < vp.y0 - pad || y > vp.y1 + pad) continue;
       const [sx, sy] = o.toScreen(x, y);
-      const half = Math.min(110, 40 + String(city.name || "").length * 4);
+      const half = Math.min(110, 40 + String(placeName(city) || "").length * 4);
       out.push([sx - half, sy - o.Rpx * 0.75 - (o.Rpx > 24 ? 52 : 30), sx + half, sy - o.Rpx * 0.35]);
     }
     return out;
@@ -197,9 +200,9 @@ export function makeLayers(model, on, { tips = {}, app = null } = {}) {
     // In the City View, the open metro's hexes carry district plaques, yield chips and site labels (drawn over the
     // map each frame), so no fort or wonder plate may stand on them: the dock lists those sites instead.
     const mm = app?.cityView?.city ? app.cityView.model : null;
-    for (const t of mm?.tiles || []) {
-      if (t?.x == null || t?.y == null) continue;
-      const [hx, hy] = o.toScreen(t.x, t.y);
+    for (const tile of mm?.tiles || []) {
+      if (tile?.x == null || tile?.y == null) continue;
+      const [hx, hy] = o.toScreen(tile.x, tile.y);
       placed.push([hx - o.Rpx * 0.95, hy - o.Rpx, hx + o.Rpx * 0.95, hy + o.Rpx * 1.05]);
     }
     const scale = Math.min(1.2, 0.85 + o.Rpx / 200);
@@ -209,7 +212,8 @@ export function makeLayers(model, on, { tips = {}, app = null } = {}) {
       if (busy.size && (busy.has(it.drawCell) || busy.has(g.cellAt(it.x, it.y)))) continue;
       const [sx, sy] = o.toScreen(it.x, it.y);
       const size = siteSize(it, o.Rpx);
-      const text = it.data.short || it.data.name || "";
+      const d = it.data;
+      const text = (d.short ? placeName({ name: d.short, name_lat: d.short_lat }) : placeName(d)) || "";
       if (!text) continue;
       const kind = it.kind === "fort" ? "fort" : it.wkind;
       const y = sy + size * 0.42;

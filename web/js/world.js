@@ -3,6 +3,7 @@
 import { makeGrid, hash01 } from "./hex.js";
 import { V1_TERRAIN, resolveTables, elevColor, OCEAN_DEEP } from "./terrain.js";
 import { css, mix, shade, desaturate, rampColor, parseHex, STATE_PALETTE } from "./color.js";
+import { placeName } from "./i18n.js";
 
 export const WATER = -1;
 export const FOREIGN = -2;
@@ -288,7 +289,7 @@ function computeStateLabels(w) {
       return 3.46 * Math.sqrt(Math.max(vxx * uy * uy - 2 * vxy * ux * uy + vyy * ux * ux, 0)) + grid.W;
     };
     const depth = (dist[a] + 0.7) * 2 * grid.H; // how thick the state is at the anchor
-    const name = states[s].name.toUpperCase();
+    const name = placeName(states[s]).toUpperCase();
     // Try the PCA angle (slightly preferred), horizontal and halfway; keep the largest text that stays inside.
     const tries = [angle, 0, angle / 2].filter((t, k, arr) => arr.findIndex((u) => Math.abs(u - t) < 0.03) === k);
     const bestFit = (text) => {

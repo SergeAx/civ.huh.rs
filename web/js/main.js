@@ -12,6 +12,7 @@ import { initPedia } from "./ui/pedia.js";
 import { initYieldReports } from "./ui/yieldReport.js";
 import { Minimap } from "./ui/minimap.js";
 import { icon } from "./ui/icon.js";
+import { esc } from "./format.js";
 import { initSearch } from "./app/search.js";
 import { createEmitter, createHashState, createModes, createUi, createMapToggles } from "./app/api.js";
 import { drawHighlight, drawOverlays, invalidateHighlight, highlightBounds } from "./render/overlays.js";
@@ -19,8 +20,27 @@ import { resourceFilterSig, layerActive, layerError, Z as LAYER_Z } from "./rend
 import { installExtensions } from "./ext/index.js";
 import { initShare } from "./app/share.js";
 import { initHelp } from "./app/help.js";
+import { initLangMenu } from "./ui/langMenu.js";
+import { t, placeName, toLatin, localizeData, localizeMap } from "./i18n.js";
 
 const { drawStatic, drawOverlay, OCEAN_BG } = mapRender;
+
+function localizeStatic() {
+  document.title = t("Serbia as a strategy game");
+  const brand = document.querySelector(".brand");
+  if (brand) brand.title = t("Serbia");
+  const brandText = document.querySelector(".brand-text");
+  if (brandText) brandText.textContent = t("Serbia");
+  const loading = document.getElementById("loading");
+  if (loading) loading.textContent = t("Surveying the land…");
+  for (const el of document.querySelectorAll("[data-i18n]")) {
+    for (const attr of el.dataset.i18n.split(",")) {
+      const v = el.getAttribute(attr);
+      if (v) el.setAttribute(attr, t(v));
+    }
+  }
+}
+localizeStatic();
 
 async function loadJSON(name, optional = false) {
   try {
@@ -55,6 +75,14 @@ async function main() {
     loadJSON("lenses", true), loadJSON("sources", true), loadJSON("resources", true), loadJSON("states", true),
   ]);
   const lensFile = lenses && Array.isArray(lenses.lenses) ? lenses : { vintage: "", groups: [], lenses: [] };
+  localizeData(lensFile);
+  localizeData(world.tables);
+  localizeData(sources);
+  for (const y of nation.yields || []) y.description = t(y.description);
+  nation.vintage = t(nation.vintage);
+  nation.gdp_vintage = t(nation.gdp_vintage);
+  nation.industries = localizeMap(nation.industries);
+  nation.gdp_industries = localizeMap(nation.gdp_industries);
   const w = prepareWorld(world, cities, { resources });
   const state = {
     cities, lens: null, band: null, hoverCell: -1, selectedCity: null, selectedState: null, showResources: !!w.resources,
@@ -530,13 +558,13 @@ async function main() {
     announceEl.textContent = "";
     setTimeout(() => (announceEl.textContent = text), 30);
   };
-  const stateName = (idx) => states?.[idx]?.name || w.raw.states[idx]?.name || "State";
+  const stateName = (idx) => placeName(w.raw.states[idx]?.name ? w.raw.states[idx] : states?.[idx]) || t("District");
+  const cityFull = (c) => placeName({ name: c.full, name_lat: c.full_lat });
 
   function describeCanvas() {
-    const parts = ["Hex map of the contiguous United States", state.lens ? `coloured by the ${state.lens.name} lens` : "showing terrain"];
-    if (state.selectedCity) parts.push(`${state.selectedCity.name} selected`);
-    else if (state.selectedState != null) parts.push(`${stateName(state.selectedState)} selected`);
-    canvas.setAttribute("aria-label", parts.join(", "));
+    const map = state.lens ? t("Hex map of Serbia coloured by the {lens} lens.", { lens: state.lens.name }) : t("Hex map of Serbia showing terrain.");
+    const sel = state.selectedCity ? placeName(state.selectedCity) : state.selectedState != null ? stateName(state.selectedState) : null;
+    canvas.setAttribute("aria-label", sel ? `${map} ${t("{name} selected.", { name: sel })}` : map);
   }
 
   const panelCtx = () => ({
@@ -553,7 +581,7 @@ async function main() {
     state.selectedState = null;
     app.panels.city(city, panelCtx());
     if (fly && city.cell != null) focusCity(city);
-    announce(`${city.name} selected. ${city.full || ""}`);
+    announce(`${t("{name} selected.", { name: placeName(city) })} ${city.full ? cityFull(city) : ""}`);
     afterSelect();
   }
 
@@ -563,7 +591,7 @@ async function main() {
     state.selectedState = idx;
     app.panels.state(idx, panelCtx());
     if (fly) focusState(idx);
-    announce(`${stateName(idx)} selected.`);
+    announce(t("{name} selected.", { name: stateName(idx) }));
     afterSelect();
   }
 
@@ -572,7 +600,7 @@ async function main() {
     state.selectedCity = null;
     state.selectedState = null;
     app.panels.close();
-    if (had) announce("Selection closed.");
+    if (had) announce(t("Selection closed."));
     afterSelect();
   }
 
@@ -594,16 +622,16 @@ async function main() {
   installSheetSwipe(() => clearSelection());
 
   // --- URL state -------------------------------------------------------------------------------------------------
-  // #state= accepts a FIPS code ("48", "6"), a postal code ("TX", "tx") or a name ("Texas"). Links keep the form
-  // they were opened with; the app itself writes FIPS.
+  // #state= accepts a district code ("06", "6"), its abbreviation ("NS", "ns") or its name in either script. Links
+  // keep the form they were opened with; the app itself writes the code.
   function stateFromHash(ref) {
-    const t = String(ref ?? "").trim();
-    if (!t) return -1;
-    if (/^\d{1,2}$/.test(t)) return stateIndex(w, t.padStart(2, "0"));
-    const k = stateIndex(w, t.toUpperCase());
+    const s = String(ref ?? "").trim();
+    if (!s) return -1;
+    if (/^\d{1,2}$/.test(s)) return stateIndex(w, s.padStart(2, "0"));
+    const k = stateIndex(w, s.toUpperCase());
     if (k >= 0) return k;
-    const name = t.toLowerCase().replace(/[_+]/g, " ");
-    return w.raw.states.findIndex((st, i) => (states?.[i]?.name || st.name || "").toLowerCase() === name);
+    const name = s.toLowerCase().replace(/[_+]/g, " ");
+    return w.raw.states.findIndex((st, i) => [states?.[i]?.name, st.name, st.name_lat].some((n) => n && n.toLowerCase() === name));
   }
   let stateHashRef = null; // {idx, raw}: the form of the #state value the current selection came from
   const url = createHashState({
@@ -660,16 +688,17 @@ async function main() {
     if (b) b.innerHTML = html;
     return b;
   };
-  setBtn("btn-share", `${icon("share", "🔗", { size: 15 })}<span class="lbl">Share</span>`);
+  setBtn("btn-share", `${icon("share", "🔗", { size: 15 })}<span class="lbl">${esc(t("Share"))}</span>`);
   setBtn("btn-help", icon("help", "?", { size: 15 }));
-  setBtn("btn-pedia", `${icon("pedia", "📖", { size: 16 })}<span class="lbl">Almanac</span>`);
+  setBtn("btn-pedia", `${icon("pedia", "📖", { size: 16 })}<span class="lbl">${esc(t("Almanac"))}</span>`);
+  const langMenu = initLangMenu();
   const searchIc = document.querySelector(".search-ic");
   if (searchIc) searchIc.innerHTML = icon("search", "🔍", { size: 14 });
-  document.querySelector(".search-kbd")?.setAttribute("title", "Press / or Ctrl K to search");
+  document.querySelector(".search-kbd")?.setAttribute("title", t("Press / or Ctrl K to search"));
 
   const search = initSearch({
     cities,
-    states: w.raw.states.map((s, i) => ({ name: states?.[i]?.name || s.name, abbr: s.abbr, population: states?.[i]?.population })),
+    states: w.raw.states.map((s, i) => ({ name: s.name || states?.[i]?.name, name_lat: s.name_lat, abbr: s.abbr, population: states?.[i]?.population })),
     onPick(r) {
       if (r.kind === "city") selectCity(r.city, { fly: true });
       else selectState(r.index, { fly: true });
@@ -775,18 +804,19 @@ async function main() {
   const shareInfo = () => ({
     renderMap: renderShareMap,
     lens: state.lens,
-    formatValue: (lens, t) => formatLensValue(lens, lensValueAt(lens, t)),
-    selection: state.selectedCity ? { kind: "city", name: state.selectedCity.name }
+    formatValue: (lens, pos) => formatLensValue(lens, lensValueAt(lens, pos)),
+    selection: state.selectedCity ? { kind: "city", name: placeName(state.selectedCity) }
       : state.selectedState != null ? { kind: "state", name: stateName(state.selectedState) } : null,
   });
-  const slug = (s) => String(s).toLowerCase().normalize("NFD").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  // File names are ASCII: Latin script, and đ (no decomposition) spelled dj.
+  const slug = (s) => toLatin(String(s)).toLowerCase().replace(/đ/g, "dj").normalize("NFD").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   const share = initShare({
     button: document.getElementById("btn-share"),
     getInfo: shareInfo,
     beforeCopy: () => url.flush(),
     fileName: () => {
       const sel = shareInfo().selection;
-      return `united-states-${state.lens?.id || "terrain"}${sel ? "-" + slug(sel.name) : ""}.png`;
+      return `srbija-${state.lens?.id || "terrain"}${sel ? "-" + slug(sel.name) : ""}.png`;
     },
     onToast: toast,
   });
@@ -819,7 +849,7 @@ async function main() {
   const resBtn = document.getElementById("btn-res");
   if (resBtn) {
     resBtn.hidden = !w.resources;
-    resBtn.innerHTML = `${icon("resources", "⛏️", { size: 15 })}<span>Resources</span>`;
+    resBtn.innerHTML = `${icon("resources", "⛏️", { size: 15 })}<span>${esc(t("Resources"))}</span>`;
     const sync = () => {
       resBtn.classList.toggle("active", state.showResources);
       resBtn.setAttribute("aria-pressed", String(state.showResources));
@@ -838,7 +868,7 @@ async function main() {
       const on = !document.body.classList.contains("minimap-on");
       document.body.classList.toggle("minimap-on", on);
       mmBtn.setAttribute("aria-pressed", String(on));
-      mmBtn.setAttribute("aria-label", on ? "Hide the minimap" : "Show the minimap");
+      mmBtn.setAttribute("aria-label", on ? t("Hide the minimap") : t("Show the minimap"));
       minimap.draw();
     };
   }
@@ -1079,15 +1109,17 @@ async function main() {
     cam.pan.y = Math.sign(y) * PAN_SPEED;
     if (x || y) { moved(); requestDraw(); }
   };
-  const typing = (t) => t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable);
+  const typing = (el) => el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable);
   // Focus on a control (a button, the legend slider) should keep arrow keys for that control.
-  const ownsArrows = (t) => t && t !== document.body && (t.getAttribute?.("role") === "slider" || t.closest?.("#lens-picker, #share-pop, #yield-report"));
+  const ownsArrows = (el) => el && el !== document.body && (el.getAttribute?.("role") === "slider" || el.closest?.("#lens-picker, #share-pop, #yield-report, #lang-pop"));
 
-  // Esc closes the topmost thing: help, search, share, a top-bar report, lens picker, Almanac, then the panel.
+  // Esc closes the topmost thing: help, search, share, the language menu, a top-bar report, lens picker, Almanac,
+  // then the panel.
   function escape() {
     if (help.isOpen) return help.close();
     if (search.isOpen) return search.close();
     if (share.isOpen) return share.close();
+    if (langMenu.isOpen) return langMenu.close();
     if (reports.isOpen) return reports.close();
     if (dock.pickerOpen) return dock.closePicker();
     if (mapToggles.isOpen) return mapToggles.close();
@@ -1140,7 +1172,7 @@ async function main() {
     if (!DATA_NAME.test(String(name))) return Promise.reject(new Error(`loadData: bad name "${name}"`));
     if (!dataLoads.has(name)) {
       dataLoads.set(name, loadJSON(name, true).then((d) => {
-        app.data[name] = d ?? null;
+        app.data[name] = d ? localizeData(d) : null;
         events.emit("data", { name, data: app.data[name] });
         return app.data[name];
       }));
@@ -1275,5 +1307,5 @@ main().catch((err) => {
   const el = document.getElementById("loading");
   if (!el) return;
   el.classList.add("error");
-  el.textContent = `Could not load the map data (${err.message}). Run "uv run python -m pipeline all" and serve web/ over HTTP.`;
+  el.textContent = t("Could not load the map data ({error}). Run \"uv run python -m pipeline all\" and serve web/ over HTTP.", { error: err.message });
 });

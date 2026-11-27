@@ -3,72 +3,92 @@
 //   citizensHtml(m, data) → HTML      the rows (placeholders for the figure canvases)
 //   mountCitizens(host, m, data)       paints the figures and wires the hover / focus read-out
 //
-// Each row: N figures (workforce 20, ages 10, commute 10 from the file; education and origins 10, rounded here with
+// Each row: N figures (workforce 20, ages, faith and peoples 10 from the file; education 10, rounded here with
 // the same largest-remainder method), a caption ("each figure ≈ 72K workers"), a read-out line that a hovered or
-// focused figure fills ("1 in 7 workers in San Jose is an engineer, coder or scientist (US: 1 in 14)"), and a thin
-// U.S. bar for comparison. A row Census left out is said so, never drawn as zeros.
-import { esc, int, pct } from "../../format.js";
-import { compact } from "./fmt.js";
+// focused figure fills ("1 in 4 workers in Novi Sad is a professional (Serbia: 1 in 6)"), and a
+// thin national bar for comparison. A row the census left out is said so, never drawn as zeros.
+import { esc, int, num, pct } from "../../format.js";
+import { compact, pluralOf } from "./fmt.js";
 import { CATEGORY_COLOR, figureCanvas, loadPainter } from "./figures.js";
+import { t, placeName } from "../../i18n.js";
 
 const ROWS = [
-  { id: "workforce", title: "Workforce", sub: "by occupation", noun: ["worker", "workers"], n: null },
-  { id: "age", title: "Generations", sub: "by age", noun: ["resident", "residents"], n: null },
-  { id: "commute", title: "Commute", sub: "how workers get to work", noun: ["worker", "workers"], n: null },
-  { id: "education", title: "Education", sub: "adults 25 and over", noun: ["adult", "adults 25+"], n: 10 },
-  { id: "nativity", title: "Origins", sub: "where residents were born", noun: ["resident", "residents"], n: 10 },
+  { id: "workforce", title: t("Workforce"), sub: t("by occupation"), noun: "workers", n: null },
+  { id: "age", title: t("Generations"), sub: t("by age"), noun: "residents", n: null },
+  { id: "faith", title: t("Faith"), sub: t("declared religion"), noun: "residents", n: null },
+  { id: "education", title: t("Education"), sub: t("residents 15 and over"), noun: "adults", n: 10 },
+  { id: "people", title: t("Peoples"), sub: t("declared national community"), noun: "residents", n: null },
 ];
 
-// [singular verb phrase, plural verb phrase] per category, for "1 in 7 workers in X is …" / "7 in 10 … are …".
-const PHRASE = {
+// What the row's figures count, in its caption and in the standout call-out.
+const NOUN = {
+  workers: {
+    each: (v) => t("Each figure ≈ {v} workers", v),
+    standout: (v) => t("{share} of workers here, {national} nationally: {ratio}× the national share.", v),
+  },
+  residents: {
+    each: (v) => t("Each figure ≈ {v} residents", v),
+    standout: (v) => t("{share} of residents here, {national} nationally: {ratio}× the national share.", v),
+  },
+  adults: {
+    each: (v) => t("Each figure ≈ {v} residents 15+", v),
+    standout: (v) => t("{share} of residents 15+ here, {national} nationally: {ratio}× the national share.", v),
+  },
+};
+
+// [singular, plural] read-out sentences per category: "1 in 7 workers in X is …" / "3 in 10 workers in X are …".
+const SENTENCE = {
   workforce: {
-    executive: ["is an executive or manager", "are executives or managers"],
-    engineer: ["is an engineer, coder or scientist", "are engineers, coders or scientists"],
-    scholar: ["is a teacher, lawyer, artist or media worker", "are teachers, lawyers, artists or media workers"],
-    healer: ["works in health care", "work in health care"],
-    service: ["works in food, cleaning, care or protective service", "work in food, cleaning, care or protective service"],
-    clerk: ["works in sales or an office", "work in sales or offices"],
-    farmer: ["farms, fishes or works in forestry", "farm, fish or work in forestry"],
-    builder: ["builds, installs or repairs", "build, install or repair"],
-    maker: ["works in a factory, transport or a warehouse", "work in factories, transport or warehouses"],
+    executive: [(v) => t("{ratio} workers in {city} is a manager", v), (v) => t("{ratio} workers in {city} are managers", v)],
+    scholar: [(v) => t("{ratio} workers in {city} is a professional: a doctor, teacher, engineer, lawyer or scientist", v), (v) => t("{ratio} workers in {city} are professionals: doctors, teachers, engineers, lawyers or scientists", v)],
+    engineer: [(v) => t("{ratio} workers in {city} is a technician or associate professional", v), (v) => t("{ratio} workers in {city} are technicians or associate professionals", v)],
+    clerk: [(v) => t("{ratio} workers in {city} works in an office", v), (v) => t("{ratio} workers in {city} work in offices", v)],
+    service: [(v) => t("{ratio} workers in {city} works in services, sales or security", v), (v) => t("{ratio} workers in {city} work in services, sales or security", v)],
+    farmer: [(v) => t("{ratio} workers in {city} farms, fishes or works in forestry", v), (v) => t("{ratio} workers in {city} farm, fish or work in forestry", v)],
+    builder: [(v) => t("{ratio} workers in {city} builds, installs or repairs", v), (v) => t("{ratio} workers in {city} build, install or repair", v)],
+    maker: [(v) => t("{ratio} workers in {city} works in a factory, transport or a warehouse", v), (v) => t("{ratio} workers in {city} work in factories, transport or warehouses", v)],
   },
   age: {
-    child: ["is a child (under 18)", "are children (under 18)"],
-    young: ["is a young adult (18–34)", "are young adults (18–34)"],
-    midlife: ["is middle-aged (35–64)", "are middle-aged (35–64)"],
-    elder: ["is 65 or older", "are 65 or older"],
+    child: [(v) => t("{ratio} residents in {city} is a child (under 15)", v), (v) => t("{ratio} residents in {city} are children (under 15)", v)],
+    young: [(v) => t("{ratio} residents in {city} is young (15–29)", v), (v) => t("{ratio} residents in {city} are young (15–29)", v)],
+    midlife: [(v) => t("{ratio} residents in {city} is of working age (30–64)", v), (v) => t("{ratio} residents in {city} are of working age (30–64)", v)],
+    elder: [(v) => t("{ratio} residents in {city} is 65 or older", v), (v) => t("{ratio} residents in {city} are 65 or older", v)],
   },
-  commute: {
-    drove_alone: ["drives to work alone", "drive to work alone"],
-    carpool: ["carpools to work", "carpool to work"],
-    transit: ["takes public transit to work", "take public transit to work"],
-    walk: ["walks to work", "walk to work"],
-    other: ["bikes or takes a taxi, motorcycle or other way to work", "bike or take a taxi, motorcycle or other way to work"],
-    home: ["works from home", "work from home"],
+  faith: {
+    orthodox: [(v) => t("{ratio} residents in {city} is Orthodox", v), (v) => t("{ratio} residents in {city} are Orthodox", v)],
+    catholic: [(v) => t("{ratio} residents in {city} is Catholic", v), (v) => t("{ratio} residents in {city} are Catholic", v)],
+    protestant: [(v) => t("{ratio} residents in {city} is Protestant", v), (v) => t("{ratio} residents in {city} are Protestant", v)],
+    islam: [(v) => t("{ratio} residents in {city} is Muslim by religion", v), (v) => t("{ratio} residents in {city} are Muslim by religion", v)],
+    other: [(v) => t("{ratio} residents in {city} follows another religion", v), (v) => t("{ratio} residents in {city} follow other religions", v)],
+    none: [(v) => t("{ratio} residents in {city} declares no religion", v), (v) => t("{ratio} residents in {city} declare no religion", v)],
   },
   education: {
-    less_than_hs: ["has no high-school diploma", "have no high-school diploma"],
-    high_school: ["finished high school (or a GED) but no college", "finished high school (or a GED) but no college"],
-    some_college: ["has some college or an associate's degree", "have some college or an associate's degree"],
-    bachelors: ["has a bachelor's degree (and no higher)", "have a bachelor's degree (and no higher)"],
-    graduate: ["has a master's, professional degree or doctorate", "have a master's, professional degree or doctorate"],
+    none: [(v) => t("{ratio} residents 15+ in {city} has not finished primary school", v), (v) => t("{ratio} residents 15+ in {city} have not finished primary school", v)],
+    primary: [(v) => t("{ratio} residents 15+ in {city} has finished primary school only", v), (v) => t("{ratio} residents 15+ in {city} have finished primary school only", v)],
+    secondary: [(v) => t("{ratio} residents 15+ in {city} has finished secondary school", v), (v) => t("{ratio} residents 15+ in {city} have finished secondary school", v)],
+    tertiary: [(v) => t("{ratio} residents 15+ in {city} has a college or university degree", v), (v) => t("{ratio} residents 15+ in {city} have a college or university degree", v)],
   },
-  nativity: {
-    born_in_state: ["was born in the state they live in", "were born in the state they live in"],
-    other_state: ["was born in another U.S. state", "were born in another U.S. state"],
-    native_abroad: ["was born a U.S. citizen abroad or in a U.S. territory", "were born U.S. citizens abroad or in U.S. territories"],
-    foreign_born: ["was born in another country", "were born in another country"],
+  people: {
+    serbs: [(v) => t("{ratio} residents in {city} is a Serb", v), (v) => t("{ratio} residents in {city} are Serbs", v)],
+    albanians: [(v) => t("{ratio} residents in {city} is an Albanian", v), (v) => t("{ratio} residents in {city} are Albanians", v)],
+    hungarians: [(v) => t("{ratio} residents in {city} is a Hungarian", v), (v) => t("{ratio} residents in {city} are Hungarians", v)],
+    bosniaks: [(v) => t("{ratio} residents in {city} is a Bosniak", v), (v) => t("{ratio} residents in {city} are Bosniaks", v)],
+    slovaks: [(v) => t("{ratio} residents in {city} is a Slovak", v), (v) => t("{ratio} residents in {city} are Slovaks", v)],
+    bulgarians: [(v) => t("{ratio} residents in {city} is a Bulgarian", v), (v) => t("{ratio} residents in {city} are Bulgarians", v)],
+    other: [(v) => t("{ratio} residents in {city} belongs to another community", v), (v) => t("{ratio} residents in {city} belong to other communities", v)],
   },
 };
 
 // Short legend labels (the file's labels are long).
 const SHORT = {
-  workforce: { executive: "Executives", engineer: "Engineers", scholar: "Teachers & arts", healer: "Health", service: "Service",
-    clerk: "Sales & office", farmer: "Farm", builder: "Builders", maker: "Makers & movers" },
-  age: { child: "Under 18", young: "18–34", midlife: "35–64", elder: "65+" },
-  commute: { drove_alone: "Drive alone", carpool: "Carpool", transit: "Transit", walk: "Walk", other: "Bike & other", home: "From home" },
-  education: { less_than_hs: "No diploma", high_school: "High school", some_college: "Some college", bachelors: "Bachelor's", graduate: "Graduate" },
-  nativity: { born_in_state: "This state", other_state: "Other state", native_abroad: "U.S. citizen abroad", foreign_born: "Other country" },
+  workforce: { executive: t("Managers"), scholar: t("Professionals"), engineer: t("Technicians"), clerk: t("Clerks"),
+    service: t("Service & sales"), farmer: t("Farm"), builder: t("Builders"), maker: t("Makers & movers") },
+  age: { child: t("Under 15"), young: "15–29", midlife: "30–64", elder: "65+" },
+  faith: { orthodox: t("Orthodox"), catholic: t("Catholic"), protestant: t("Protestant"), islam: t("Islam"), other: t("Other"),
+    none: t("No religion") },
+  education: { none: t("No primary"), primary: t("Primary"), secondary: t("Secondary"), tertiary: t("Degree") },
+  people: { serbs: t("Serbs"), albanians: t("Albanians"), hungarians: t("Hungarians"), bosniaks: t("Bosniaks"), slovaks: t("Slovaks"),
+    bulgarians: t("Bulgarians"), other: t("Other") },
 };
 
 /** Largest-remainder rounding of counts into n figures (the pipeline's method, for rows without figures). */
@@ -86,23 +106,24 @@ export function largestRemainder(counts, keys, n) {
 /** "1 in 7", "3 in 10", "fewer than 1 in 1,000". */
 export function oneIn(share) {
   if (share == null || !Number.isFinite(share)) return null;
-  if (share <= 0) return { text: "none", plural: true };
-  if (share < 0.001) return { text: "fewer than 1 in 1,000", plural: false };
+  if (share <= 0) return { text: t("{k} in 10", { k: 0 }), plural: true };
+  if (share < 0.001) return { text: t("fewer than 1 in 1,000"), plural: false };
   if (share >= 0.3) {
     const k = Math.round(share * 10);
-    return k >= 10 ? { text: "nearly all", plural: true } : { text: `${k} in 10`, plural: k !== 1 };
+    return k >= 10 ? { text: t("more than 9 in 10"), plural: true } : { text: t("{k} in 10", { k }), plural: k !== 1 };
   }
-  const n = Math.round(1 / share);
-  return { text: `1 in ${int(n)}`, plural: false };
+  return { text: t("1 in {d}", { d: int(Math.round(1 / share)) }), plural: false };
 }
 
-function sentence(rowId, key, share, natShare, cityName, noun) {
+function sentence(rowId, key, share, natShare, city, group) {
   const a = oneIn(share);
   if (!a) return "";
-  const ph = PHRASE[rowId]?.[key] || ["is in this group", "are in this group"];
+  const forms = SENTENCE[rowId]?.[key];
+  const v = { ratio: a.text, city, group };
+  let s = forms ? forms[a.plural ? 1 : 0](v) : t("{group}: {ratio} in {city}", v);
   const us = oneIn(natShare);
-  const lead = a.text.charAt(0).toUpperCase() + a.text.slice(1);
-  return `${lead} ${noun[1]} in ${cityName} ${a.plural ? ph[1] : ph[0]}${us ? ` (US: ${us.text})` : ""}`;
+  if (us) s = t("{sentence} (Serbia: {ratio})", { sentence: s, ratio: us.text });
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 function rowModel(rowDef, row, nat, groups, figuresN) {
@@ -123,39 +144,39 @@ function specMap(city) {
 /** The Citizens rows. data = citizens.json (or null / undefined while loading). */
 export function citizensHtml(m, data) {
   const c = m.city;
-  if (data === undefined) return `<p class="muted cv-note">Loading the citizen mix…</p>`;
-  if (!data || !data.cities) return `<p class="muted cv-note">The citizen mix is not available.</p>`;
+  if (data === undefined) return `<p class="muted cv-note">${esc(t("Loading the citizen mix…"))}</p>`;
+  if (!data || !data.cities) return `<p class="muted cv-note">${esc(t("The citizen mix is not available."))}</p>`;
   const row0 = data.cities[c.id];
+  const vintage = data.vintage || "";
   if (!row0) {
-    return `<p class="muted cv-note">Census published none of the citizen tables for ${esc(c.name)} in the ${esc(data.vintage || "ACS 1-year")} release (it leaves out small areas), so there are no citizen figures here.</p>`;
+    return `<p class="muted cv-note">${esc(t("Census published none of the citizen tables for {city} in the {vintage} release (it leaves out small areas), so there are no citizen figures here.", { city: placeName(c), vintage }))}</p>`;
   }
   const nat = data.national || {};
   const groups = data.groups || {};
   const specs = specMap(row0);
   const label = Object.fromEntries(Object.entries(groups).map(([r, gs]) => [r, Object.fromEntries(gs.map((g) => [g.key, g.label]))]));
 
-  // Headline: median age, degrees, foreign-born, and the "great person" call-out (the strongest specialist).
-  const med = row0.age?.median, usMed = nat.age?.median;
+  // Headline: mean age, degrees, elders, and the "great person" call-out (the strongest specialist).
+  const med = row0.age?.mean, usMed = nat.age?.mean;
   const ba = row0.education?.bachelors_plus, usBa = nat.education?.bachelors_plus;
-  const fb = row0.nativity?.foreign_born ?? row0.nativity?.shares?.foreign_born;
-  const usFb = nat.nativity?.foreign_born ?? nat.nativity?.shares?.foreign_born;
-  const chip = (v, us, fmt, lbl, tip) => (v == null ? "" : `<div class="cv-cz-chip" title="${esc(tip)}"><b>${fmt(v)}</b><span>${esc(lbl)}</span>${us != null ? `<small>US ${fmt(us)}</small>` : ""}</div>`);
+  const fb = row0.age?.shares?.elder, usFb = nat.age?.shares?.elder;
+  const chip = (v, us, fmt, lbl, tip) => (v == null ? "" : `<div class="cv-cz-chip" title="${esc(tip)}"><b>${fmt(v)}</b><span>${esc(lbl)}</span>${us != null ? `<small>${esc(t("Serbia {v}", { v: fmt(us) }))}</small>` : ""}</div>`);
   const top = (row0.specialists || []).find((s) => s.ratio >= (data.rule?.specialist_high ?? 1.5));
   const topRow = ROWS.find((r) => r.id === top?.row);
   const great = top && topRow ? `<div class="cv-great" style="--fc:${esc(CATEGORY_COLOR[top.row]?.[top.key] || "#c9a45c")}">
       <span class="cv-great-fig" data-great="${esc(top.row)}|${esc(top.key)}" aria-hidden="true"></span>
-      <div><small>Standout citizens</small><b>${esc(label[top.row]?.[top.key] || top.key)}</b>
-      <span>${pct(top.share, 1)} of ${esc(topRow.noun[1])} here, ${pct(top.national, 1)} nationally: ${top.ratio.toFixed(1)}× the U.S. share.</span></div></div>` : "";
+      <div><small>${esc(t("Standout citizens"))}</small><b>${esc(label[top.row]?.[top.key] || top.key)}</b>
+      <span>${esc(NOUN[topRow.noun].standout({ share: pct(top.share, 1), national: pct(top.national, 1), ratio: num(top.ratio, 1) }))}</span></div></div>` : "";
 
   const rows = ROWS.map((rd) => {
     const row = row0[rd.id];
     const head = `<div class="cv-cz-h"><b>${esc(rd.title)}</b><span>${esc(rd.sub)}</span></div>`;
     if (!row) {
       return `<div class="cv-cz-row missing" data-row="${rd.id}">${head}
-        <p class="muted cv-note">Census did not publish this table for ${esc(c.name)} in the ${esc(data.vintage || "ACS 1-year")} release, so this row is left out.</p></div>`;
+        <p class="muted cv-note">${esc(t("Census did not publish this table for {city} in the {vintage} release, so this row is left out.", { city: placeName(c), vintage }))}</p></div>`;
     }
     const { keys, n, figs, natFigs } = rowModel(rd, row, nat[rd.id], groups, data.figures || {});
-    if (!figs) return `<div class="cv-cz-row missing" data-row="${rd.id}">${head}<p class="muted cv-note">No counts for this row.</p></div>`;
+    if (!figs) return `<div class="cv-cz-row missing" data-row="${rd.id}">${head}<p class="muted cv-note">${esc(t("No counts for this row."))}</p></div>`;
     const per = row.total / n;
     const cells = [];
     for (const k of keys) {
@@ -166,23 +187,27 @@ export function citizensHtml(m, data) {
         cells.push(`<span class="cv-fig${mark ? ` ${mark}` : ""}" tabindex="${j ? -1 : 0}" role="img" data-k="${esc(k)}" aria-label="${esc(label[rd.id]?.[k] || k)}"></span>`);
       }
     }
-    // Legend: every category, with its share, the U.S. share and a chevron for specialists. Categories that
+    // Legend: every category, with its share, the national share and a chevron for specialists. Categories that
     // round to no figure are still listed (greyed), so nothing silently disappears.
     const legend = keys.map((k) => {
       const sh = row.shares?.[k], us = nat[rd.id]?.shares?.[k];
       const sp = specs.get(`${rd.id}|${k}`);
-      const chev = sp ? `<em class="${sp.ratio >= 1 ? "up" : "down"}" title="${sp.ratio.toFixed(1)}× the U.S. share">${sp.ratio >= 1 ? "▲" : "▼"}</em>` : "";
-      return `<span class="cv-cz-k${figs[k] ? "" : " zero"}" data-k="${esc(k)}" title="${esc(label[rd.id]?.[k] || k)}: ${sh != null ? pct(sh, 1) : "–"}${us != null ? ` (US ${pct(us, 1)})` : ""}${figs[k] ? "" : ". Rounds to no figure."}"><i style="background:${esc(CATEGORY_COLOR[rd.id]?.[k] || "#888")}"></i>${esc(SHORT[rd.id]?.[k] || k)} <small>${sh != null ? pct(sh, 0) : "–"}</small>${chev}</span>`;
+      const chev = sp ? `<em class="${sp.ratio >= 1 ? "up" : "down"}" title="${esc(t("{ratio}× the national share", { ratio: num(sp.ratio, 1) }))}">${sp.ratio >= 1 ? "▲" : "▼"}</em>` : "";
+      const tip = `${label[rd.id]?.[k] || k}: ${sh != null ? pct(sh, 1) : "–"}${us != null ? ` ${t("(Serbia {v})", { v: pct(us, 1) })}` : ""}${figs[k] ? "" : `. ${t("Rounds to no figure.")}`}`;
+      return `<span class="cv-cz-k${figs[k] ? "" : " zero"}" data-k="${esc(k)}" title="${esc(tip)}"><i style="background:${esc(CATEGORY_COLOR[rd.id]?.[k] || "#888")}"></i>${esc(SHORT[rd.id]?.[k] || k)} <small>${sh != null ? pct(sh, 0) : "–"}</small>${chev}</span>`;
     }).join("");
-    // U.S. comparison bar (shares), aligned with the figures' order.
-    const usBar = nat[rd.id]?.shares ? `<div class="cv-cz-us" title="U.S. mix, same order"><span>US</span><div>${keys.map((k) => {
+    // National comparison bar (shares), aligned with the figures' order.
+    const usBar = nat[rd.id]?.shares ? `<div class="cv-cz-us" title="${esc(t("National mix, same order"))}"><span>${esc(t("SRB"))}</span><div>${keys.map((k) => {
       const s = nat[rd.id].shares[k] || 0;
-      return s > 0 ? `<i style="flex:${s};background:${esc(CATEGORY_COLOR[rd.id]?.[k] || "#888")}" title="${esc(SHORT[rd.id]?.[k] || k)}: ${pct(s, 1)} in the U.S."></i>` : "";
+      return s > 0 ? `<i style="flex:${s};background:${esc(CATEGORY_COLOR[rd.id]?.[k] || "#888")}" title="${esc(t("{group}: {v} in Serbia", { group: SHORT[rd.id]?.[k] || k, v: pct(s, 1) }))}"></i>` : "";
     }).join("")}</div></div>` : "";
-    const cap = `Each figure ≈ ${compact(per)} ${rd.noun[1]} · ${compact(row.total)} in all${rd.n && !row.figures ? " · rounded here" : ""}`;
-    const extra = rd.id === "age" && med != null ? ` · median age ${med.toFixed(1)}${usMed != null ? ` (US ${usMed.toFixed(1)})` : ""}` : "";
+    const cap = [NOUN[rd.noun].each({ n: pluralOf(per), v: compact(per) }), t("{v} in all", { v: compact(row.total) }), rd.n && !row.figures ? t("rounded here") : ""]
+      .filter(Boolean).join(" · ");
+    const extra = rd.id === "age" && med != null
+      ? ` · ${usMed != null ? t("mean age {v} (Serbia {national})", { v: num(med, 1), national: num(usMed, 1) }) : t("mean age {v}", { v: num(med, 1) })}` : "";
+    const figsLabel = keys.filter((k) => figs[k]).map((k) => t("{count} of {total} {group}", { count: figs[k], total: n, group: SHORT[rd.id]?.[k] || k })).join(", ");
     return `<div class="cv-cz-row" data-row="${rd.id}" style="--n:${n}">${head}
-      <div class="cv-figs" role="group" aria-label="${esc(rd.title)}: ${keys.filter((k) => figs[k]).map((k) => `${figs[k]} of ${n} ${SHORT[rd.id]?.[k] || k}`).join(", ")}">${cells.join("")}</div>
+      <div class="cv-figs" role="group" aria-label="${esc(rd.title)}: ${esc(figsLabel)}">${cells.join("")}</div>
       ${usBar}
       <div class="cv-cz-out" aria-live="polite" data-default="${esc(cap + extra)}">${esc(cap + extra)}</div>
       <div class="cv-cz-legend">${legend}</div>
@@ -190,18 +215,19 @@ export function citizensHtml(m, data) {
   }).join("");
 
   const unreliable = row0.reliable === false
-    ? `<p class="cv-warn">Micropolitan area: the 1-year survey's margins of error are large here, so read these figures as rough.</p>` : "";
+    ? `<p class="cv-warn">${esc(t("Small area: the 1-year survey's margins of error are large here, so read these figures as rough."))}</p>` : "";
   return `
     <div class="cv-cz-top">
-      ${chip(med, usMed, (v) => v.toFixed(1), "median age", "Median age (ACS B01002)")}
-      ${chip(ba, usBa, (v) => pct(v, 0), "have a degree", "Adults 25+ with a bachelor's degree or higher (ACS C15003)")}
-      ${chip(fb, usFb, (v) => pct(v, 0), "born abroad", "Residents born in another country (ACS B05002)")}
+      ${chip(med, usMed, (v) => num(v, 1), t("mean age"), t("Mean age of residents, from the census age groups"))}
+      ${chip(ba, usBa, (v) => pct(v, 0), t("have a degree"), t("Residents 15+ with a college or university degree"))}
+      ${chip(fb, usFb, (v) => pct(v, 0), t("aged 65+"), t("Residents aged 65 and over"))}
     </div>
     ${great}
     ${unreliable}
     <div class="cv-cz${row0.reliable === false ? " unreliable" : ""}">${rows}</div>
-    <p class="cv-note">${esc(data.vintage || "ACS 1-year")}, tables C24010, B01001, C08301, C15003 and B05002. Figures are rounded (largest remainder) so each row adds up; hover or tap a figure for its share. ▲▼ = at least 1.5× or at most 0.67× the U.S. share. Commute counts workers, not all residents.</p>`;
+    <p class="cv-note">${esc(t("{vintage}, tables C24010, B01001, C08301, C15003 and B05002. Figures are rounded (largest remainder) so each row adds up; hover or tap a figure for its share. ▲▼ = at least 1.5× or at most 0.67× the national share. Commute counts workers, not all residents.", { vintage }))}</p>`;
 }
+
 
 /** Paint the figure canvases and wire the read-outs. */
 export function mountCitizens(host, m, data) {
@@ -238,7 +264,6 @@ export function mountCitizens(host, m, data) {
 
   host.querySelectorAll(".cv-cz-row[data-row]").forEach((rowEl) => {
     const rid = rowEl.dataset.row;
-    const rd = ROWS.find((r) => r.id === rid);
     const row = row0[rid];
     const out = rowEl.querySelector(".cv-cz-out");
     if (!row || !out) return;
@@ -251,7 +276,10 @@ export function mountCitizens(host, m, data) {
         return;
       }
       const sh = row.shares?.[k], us = nat[rid]?.shares?.[k];
-      out.innerHTML = `${esc(sentence(rid, k, sh, us, m.city.name, rd.noun))}<small>${sh != null ? pct(sh, 1) : "–"} here${us != null ? ` · ${pct(us, 1)} in the U.S.` : ""}${row.counts?.[k] != null ? ` · ≈${compact(row.counts[k])} people` : ""}</small>`;
+      const parts = [t("{v} here", { v: sh != null ? pct(sh, 1) : "–" })];
+      if (us != null) parts.push(t("{v} in Serbia", { v: pct(us, 1) }));
+      if (row.counts?.[k] != null) parts.push(t("≈{v} people", { n: pluralOf(row.counts[k]), v: compact(row.counts[k]) }));
+      out.innerHTML = `${esc(sentence(rid, k, sh, us, placeName(m.city), SHORT[rid]?.[k] || k))}<small>${esc(parts.join(" · "))}</small>`;
       out.classList.add("on");
     };
     let pinned = null;

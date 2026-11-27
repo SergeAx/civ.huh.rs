@@ -1,5 +1,6 @@
 import { css } from "../color.js";
 import { esc } from "../format.js";
+import { t, placeName } from "../i18n.js";
 import { isCapital } from "../world.js";
 import { yieldGrid, amenities, industries, gdpRow, popLine, growthSpan, showPanel, hidePanel } from "./infoPanel.js";
 
@@ -12,30 +13,34 @@ export function openCityPanel(city, ctx) {
   const owner = city.cell != null ? w.raw.owner[city.cell] : -1;
   const col = css(w.stateColor[owner] || [190, 190, 190]);
 
-  // The city's states as links to their state panels.
+  // The city's districts as links to their district panels.
   const states = (city.states || [])
     .map((abbr) => ({ abbr, i: w.raw.states.findIndex((s) => s.abbr === abbr) }))
     .map(({ abbr, i }) => (i >= 0 && ctx.onState
-      ? `<button class="chip" data-state="${i}" title="Open ${esc(w.raw.states[i].name)}">${esc(abbr)}</button>`
+      ? `<button class="chip" data-state="${i}" title="${esc(t("Open {name}", { name: placeName(w.raw.states[i]) }))}">${esc(abbr)}</button>`
       : `<span class="chip">${esc(abbr)}</span>`))
     .join("");
 
   const growth = growthSpan(city, n);
+  const name = placeName(city);
+  const source = nation.gdp_vintage
+    ? t("Source: {source}; GDP: {gdp}.", { source: nation.vintage, gdp: nation.gdp_vintage })
+    : t("Source: {source}.", { source: nation.vintage });
 
   showPanel({
     kind: "city",
     stripe: col,
-    title: city.name,
-    titleHtml: `${isCapital(city) ? `<span class="cap" title="National capital">★</span> ` : ""}${esc(city.name)}`,
-    sub: `${esc(city.full || "")}${states ? `<div class="chips">${states}</div>` : ""}`,
+    title: name,
+    titleHtml: `${isCapital(city) ? `<span class="cap" title="${esc(t("National capital"))}">★</span> ` : ""}${esc(name)}`,
+    sub: `${esc(city.full ? placeName({ name: city.full, name_lat: city.full_lat }) : "")}${states ? `<div class="chips">${states}</div>` : ""}`,
     headExtra: popLine(city, growth),
     sections: [
-      { title: "Yields", html: `<div class="yield-grid">${yieldGrid(nation, city.yields)}</div>` },
-      { title: "Amenities &amp; Housing", html: amenities(city, n) + gdpRow(city) },
-      { title: "Districts · where people work", html: industries(city, nation) },
+      { title: esc(t("Yields")), html: `<div class="yield-grid">${yieldGrid(nation, city.yields)}</div>` },
+      { title: esc(t("Amenities & Housing")), html: amenities(city, n) + gdpRow(city) },
+      { title: esc(t("City districts · where people work")), html: industries(city, nation) },
     ],
-    foot: `Source: ${esc(nation.vintage)} (tables C24030, B19025, B19013, B25064, B25077, B23025)${nation.gdp_vintage ? `; GDP: ${esc(nation.gdp_vintage)}` : ""}.
-      Green ×N = this industry's share of jobs is N× the U.S. share.`,
+    foot: `${esc(source)}
+      ${esc(t("Green ×N = this industry's share of jobs is N× the national share."))}`,
     onClose: ctx.onClose,
     onPedia: ctx.onPedia,
     wire(panel) {

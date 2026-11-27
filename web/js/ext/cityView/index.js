@@ -17,6 +17,7 @@ import { createBannerFocus } from "./bannerFocus.js";
 import { render, goToSection } from "./screen.js";
 import { icon } from "../../ui/icon.js";
 import { esc } from "../../format.js";
+import { t, placeName } from "../../i18n.js";
 
 const MODE = "city";
 const CSS_HREF = new URL("../../../css/cityview.css", import.meta.url).href;
@@ -56,21 +57,22 @@ export async function install(app) {
     const b = document.createElement("button");
     b.type = "button";
     b.className = "cv-open";
-    b.innerHTML = `<span class="cv-open-ic" aria-hidden="true">${icon("layers", "▦", { size: 15 })}</span><span>Open City View</span><span class="cv-open-go" aria-hidden="true">›</span>`;
-    b.title = `Open ${city.name} in the City View: its metro on the map, citizens, economy, workforce, resources and peers`;
+    b.innerHTML = `<span class="cv-open-ic" aria-hidden="true">${icon("layers", "▦", { size: 15 })}</span><span>${esc(t("Open City View"))}</span><span class="cv-open-go" aria-hidden="true">›</span>`;
+    b.title = t("Open {city} in the City View: its hexes on the map, citizens, economy, workforce, resources and peers", { city: placeName(city) });
     b.onclick = () => openCityView(city);
     head.appendChild(b);
     addDistrictsLink(panel, city);
   }
 
   // The quick panel's industry list (ACS C24030: where residents work) is not the City View's Districts (BLS QCEW:
-  // industries concentrated in the metro's own jobs). A line under it says so and opens the Districts tab.
+  // industries concentrated in the metro's own jobs). A line under it says so and opens the Districts tab. The
+  // section is found by its industry rows (ui/infoPanel.js industries()), as its title is translated.
   function addDistrictsLink(panel, city) {
-    const sec = [...panel.querySelectorAll(".cp-section")].find((s) => /where (people|residents) work/i.test(s.querySelector("h3")?.textContent || ""));
-    if (!sec || sec.querySelector(".cv-plink")) return;
+    const sec = [...panel.querySelectorAll(".cp-section")].find((s) => s.querySelector(".ind"));
+    if (!sec || sec.querySelector(".cv-plink") || !app.data?.districts) return;
     const p = document.createElement("p");
     p.className = "cv-plink";
-    p.innerHTML = `These are residents' industries (ACS). The metro's specialised districts, from jobs counted at employers (BLS QCEW), are in the City View. <button type="button">Districts ›</button>`;
+    p.innerHTML = `${esc(t("These are residents' industries (ACS). The city's specialised districts, from jobs counted at employers (BLS QCEW), are in the City View."))} <button type="button">${esc(t("City districts"))} ›</button>`;
     p.querySelector("button").onclick = () => openCityView(city, { section: "districts" });
     sec.appendChild(p);
   }
@@ -121,7 +123,7 @@ export async function install(app) {
     cv.pinned = -1;
     layer.focus(-1);
 
-    cv.dock = app.ui.dock("right", { width: dockWidth(), label: `City View: ${city.name}` });
+    cv.dock = app.ui.dock("right", { width: dockWidth(), label: t("City View: {city}", { city: placeName(city) }) });
     if (!same) {
       render(cv.dock, m, {
         onClose: () => leave(true),
@@ -210,15 +212,15 @@ export async function install(app) {
     }
     const col = `rgb(${m.stateRGB.map((v) => v | 0).join(",")})`;
     const n = m.footprint.length;
-    cv.legend.setAttribute("aria-label", `${m.city.name} metro on the map`);
+    cv.legend.setAttribute("aria-label", t("{city} on the map", { city: placeName(m.city) }));
     cv.legend.innerHTML = `
-      <div class="cv-ml-t"><i class="cv-ml-sw" style="--sc:${col}"></i><b title="${esc(m.city.full || m.city.name)}">${esc(m.city.name)}</b><span class="cv-ml-k">· ${n} hex${n === 1 ? "" : "es"}</span><button type="button" class="cv-ml-i" aria-controls="cv-ml-body" title="Map key">i</button></div>
-      <div class="cv-ml-sch">${icon("layers", "▦", { size: 11 })}District positions are schematic</div>
+      <div class="cv-ml-t"><i class="cv-ml-sw" style="--sc:${col}"></i><b title="${esc(m.city.full ? placeName({ name: m.city.full, name_lat: m.city.full_lat }) : placeName(m.city))}">${esc(placeName(m.city))}</b><span class="cv-ml-k">· ${esc(n === 1 ? t("{n} hex", { n }) : t("{n} hexes", { n }))}</span><button type="button" class="cv-ml-i" aria-controls="cv-ml-body" title="${esc(t("Map key"))}">i</button></div>
+      <div class="cv-ml-sch">${icon("layers", "▦", { size: 11 })}${esc(t("City district positions are schematic"))}</div>
       <div class="cv-ml-body" id="cv-ml-body">
-        <div class="cv-ml-r"><span class="cv-ml-pill">${icon("pop", "👥", { size: 11 })}≈</span>residents per hex <small>(density × area)</small></div>
-        <div class="cv-ml-r"><span class="cv-ml-pill">${icon("l-developed", "▦", { size: 11 })}%</span>main land use</div>
-        <div class="cv-ml-r"><span class="cv-ml-hex" aria-hidden="true"></span>districts: real specialisations <small>(BLS QCEW)</small></div>
-        <p class="cv-ml-n">The districts are real (industries with a high share of the metro's jobs), but their positions are schematic: they are not where the jobs are.</p>
+        <div class="cv-ml-r"><span class="cv-ml-pill">${icon("pop", "👥", { size: 11 })}≈</span>${esc(t("residents per hex"))} <small>${esc(t("(density × area)"))}</small></div>
+        <div class="cv-ml-r"><span class="cv-ml-pill">${icon("l-developed", "▦", { size: 11 })}%</span>${esc(t("main land use"))}</div>
+        <div class="cv-ml-r"><span class="cv-ml-hex" aria-hidden="true"></span>${esc(t("city districts: real specialisations"))}</div>
+        <p class="cv-ml-n">${esc(t("The city districts are real (industries with a high share of the city's jobs), but their positions are schematic: they are not where the jobs are."))}</p>
       </div>`;
     setLegendOpen(legendOpen ?? false);
   }
@@ -228,7 +230,7 @@ export async function install(app) {
     const b = cv.legend.querySelector(".cv-ml-i");
     if (b) {
       b.setAttribute("aria-expanded", open ? "true" : "false");
-      b.setAttribute("aria-label", open ? "Hide the map key" : "Show the map key");
+      b.setAttribute("aria-label", open ? t("Hide the map key") : t("Show the map key"));
     }
   }
 
@@ -288,13 +290,13 @@ export async function install(app) {
     const tip = document.getElementById("tooltip");
     if (!tip) return;
     for (const s of tip.querySelectorAll("span.muted")) {
-      if (s.textContent !== "Click to open the city") continue;
+      if (s.textContent !== t("Click to open the city")) continue;
       if (hoverCity === cv.city) {
         const br = s.previousSibling;
         if (br && br.nodeName === "BR") br.remove();
         s.remove();
       } else {
-        s.textContent = "Click to open its City View";
+        s.textContent = t("Click to open its City View");
       }
     }
   });
@@ -440,7 +442,7 @@ export async function install(app) {
   addEventListener("resize", () => {
     clearTimeout(rz);
     rz = setTimeout(() => {
-      if (app.mode === MODE && cv.dock && !app.isMobile()) app.ui.dock("right", { width: dockWidth(), label: `City View: ${cv.city?.name || ""}` });
+      if (app.mode === MODE && cv.dock && !app.isMobile()) app.ui.dock("right", { width: dockWidth(), label: t("City View: {city}", { city: placeName(cv.city) }) });
     }, 150);
   });
 

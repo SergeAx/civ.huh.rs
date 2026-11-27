@@ -1,28 +1,30 @@
 // Keyboard & mouse cheat-sheet.
 import { icon } from "../ui/icon.js";
+import { esc } from "../format.js";
+import { t } from "../i18n.js";
 
 const isMac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || "");
 const MOD = isMac ? "⌘" : "Ctrl";
 
 const ROWS = [
-  ["Move", [
-    [["Drag", "←↑→↓", "WASD"], "Pan the map"],
-    [["Scroll", "+", "–"], "Zoom in and out"],
-    [["Double-click"], "Zoom in on a spot"],
-    [["Two fingers"], "Pinch to zoom, drag to pan (touch)"],
-    [["Minimap"], "Click or drag to jump"],
+  [t("Move"), [
+    [[t("Drag"), "←↑→↓", "WASD"], t("Pan the map")],
+    [[t("Scroll"), "+", "–"], t("Zoom in and out")],
+    [[t("Double-click")], t("Zoom in on a spot")],
+    [[t("Two fingers")], t("Pinch to zoom, drag to pan (touch)")],
+    [[t("Minimap")], t("Click or drag to jump")],
   ]],
-  ["Explore", [
-    [["Click city"], "Open the city screen"],
-    [["Click land"], "Open that state"],
-    [["/", `${MOD} K`], "Search cities and states"],
-    [["L", "Shift L"], "Next / previous lens"],
-    [["Legend"], "Hover or drag the scale to show only that range"],
-    [["R"], "Show or hide resources"],
+  [t("Explore"), [
+    [[t("Click city")], t("Open the city screen")],
+    [[t("Click land")], t("Open that district")],
+    [["/", `${MOD} K`], t("Search cities and districts")],
+    [["L", "Shift L"], t("Next / previous lens")],
+    [[t("Legend")], t("Hover or drag the scale to show only that range")],
+    [["R"], t("Show or hide resources")],
   ]],
-  ["Panels", [
-    [["?"], "This help"],
-    [["Esc"], "Close help, search, Almanac, then the panel"],
+  [t("Panels"), [
+    [["?"], t("This help")],
+    [["Esc"], t("Close help, search, Almanac, then the panel")],
   ]],
 ];
 
@@ -32,15 +34,15 @@ export function initHelp() {
   const card = modal.querySelector(".help-card");
   let restore = null;
   card.innerHTML = `
-    <button class="icon-btn help-close" data-close aria-label="Close help">${icon("close", "✕", { size: 13 })}</button>
-    <h2 id="help-title">${icon("help", "?", { size: 22 })}<span>Controls</span></h2>
+    <button class="icon-btn help-close" data-close aria-label="${esc(t("Close help"))}">${icon("close", "✕", { size: 13 })}</button>
+    <h2 id="help-title">${icon("help", "?", { size: 22 })}<span>${esc(t("Controls"))}</span></h2>
     <div class="help-cols">${ROWS.map(([title, rows]) => `
-      <section><h3>${title}</h3>${rows.map(([keys, what]) => `
-        <div class="help-row"><span class="keys">${keys.map((k) => `<kbd>${k}</kbd>`).join("")}</span><span>${what}</span></div>`).join("")}
+      <section><h3>${esc(title)}</h3>${rows.map(([keys, what]) => `
+        <div class="help-row"><span class="keys">${keys.map((k) => `<kbd>${esc(k)}</kbd>`).join("")}</span><span>${esc(what)}</span></div>`).join("")}
       </section>`).join("")}</div>
-    <p class="help-foot">Every number traces back to public data: open the <b>Almanac</b> for sources.
-      The link in the address bar always reopens this exact view.
-      Source code: <a href="usaciv-source.zip" download>usaciv-source.zip</a> (MIT; run it with uv, see its README).</p>`;
+    <p class="help-foot">${t("Every number traces back to public data: open the {almanac} for sources.", { almanac: `<b>${esc(t("Almanac"))}</b>` })}
+      ${esc(t("The link in the address bar always reopens this exact view."))}
+      ${t("Source code: {link} (MIT; run it with uv, see its README).", { link: `<a href="srbciv-source.zip" download>srbciv-source.zip</a>` })}</p>`;
 
   const close = () => {
     if (modal.hidden) return;

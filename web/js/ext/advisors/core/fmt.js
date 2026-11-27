@@ -1,10 +1,10 @@
 // Number formatting for the advisor kit, built on web/js/format.js.
 // Formats follow lenses.json / counties.json: int | usd | pct (0..1 fraction) | float | minutes | years | km2 | text,
 // plus a few of our own: money (compact $), signed (signed %), lq (×1.23), mw, count, ratio (×4.2).
-import { compact, dollars, int, money, pct } from "../../../format.js";
+import { compact, euros, int, money, pct } from "../../../format.js";
 import { fin } from "./util.js";
 
-export { compact, dollars, int, money, pct };
+export { compact, euros, int, money, pct };
 
 export const signedPct = (g, d = 1) => (fin(g) ? `${g >= 0 ? "+" : "−"}${Math.abs(g * 100).toFixed(d)}%` : "–");
 
@@ -28,7 +28,7 @@ export function fmtValue(format, v, unit) {
   if (!fin(v)) return "–";
   switch (format) {
     case "int": case "count": return Math.abs(v) >= 1e6 ? count3(v) : int(v);
-    case "usd": return Math.abs(v) >= 1e6 ? money(v) : dollars(v);
+    case "eur": return Math.abs(v) >= 1e6 ? money(v) : euros(v);
     case "money": return money(v);
     case "pct": return pct(v);
     case "signed": return signedPct(v);
@@ -52,7 +52,7 @@ export function fmtCell(format, v, unit) {
   const a = Math.abs(v);
   switch (format) {
     case "int": case "count": return a >= 1e4 ? count3(v) : int(v);
-    case "usd": return a >= 1e4 ? `$${count3(v)}` : dollars(v);
+    case "eur": return a >= 1e4 ? `$${count3(v)}` : euros(v);
     case "money": return money(v);
     case "km2": return a >= 1e5 ? `${count3(v)} km²` : `${int(v)} km²`;
     case "float": return a >= 1e4 ? count3(v) : fmtValue(format, v, unit);
@@ -64,7 +64,7 @@ export function fmtCell(format, v, unit) {
 export function fmtShort(format, v) {
   if (!fin(v)) return "–";
   switch (format) {
-    case "usd": case "money": return money(v);
+    case "eur": case "money": return money(v);
     case "pct": return `${+(v * 100).toFixed(Math.abs(v) < 0.1 && v !== 0 ? 1 : 0)}%`;
     case "signed": return `${v > 0 ? "+" : v < 0 ? "−" : ""}${+Math.abs(v * 100).toFixed(1)}%`;
     case "lq": case "ratio": return `×${+v.toFixed(1)}`;

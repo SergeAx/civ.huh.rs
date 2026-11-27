@@ -22,6 +22,8 @@ import { css, luminance, shade } from "../color.js";
 import { drawIcon, hasIcon } from "../icons.js";
 import { compact, popShort } from "../ext/cityView/fmt.js"; // format.js plus a 1000K → 1.0M roll-over fix
 import { isCapital } from "../world.js";
+import { pct } from "../format.js";
+import { placeName } from "../i18n.js";
 import { cityIsDot } from "./art/city.js";
 
 const SERIF = '"Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif';
@@ -132,7 +134,7 @@ function measure(ctx, city, yields, nation, L) {
   let m = metrics.get(key);
   if (m && m.nation === nation && m.yields === yields && m.cityRef === city.name + city.population) return m;
   ctx.save();
-  const runs = smallCapRuns(city.name);
+  const runs = smallCapRuns(placeName(city));
   let nameW = 0;
   for (const r of runs) {
     ctx.font = r.big ? L.big : L.small;
@@ -153,7 +155,7 @@ function measure(ctx, city, yields, nation, L) {
     return { yd, t, w: ctx.measureText(t).width };
   });
   const yieldsW = parts.reduce((a, p) => a + L.yieldIcon + 2 + p.w + L.yieldGap, 0) - L.yieldGap;
-  const growthTxt = growth == null ? "" : `${growth >= 0 ? "+" : "−"}${Math.abs(growth * 100).toFixed(1)}%`;
+  const growthTxt = growth == null ? "" : `${growth >= 0 ? "+" : "−"}${pct(Math.abs(growth), 1)}`;
   const growthW = growthTxt ? ctx.measureText(growthTxt).width : 0;
   ctx.restore();
   const spec = specialty(city, nation);
@@ -556,9 +558,10 @@ function badgeFor(badges, city) {
   return { label: b.label, color: b.color, rgb };
 }
 
-/** Population floor for a hex radius in screen px: national view shows the big metros, close zoom everything. */
+/** Population floor for a hex radius in screen px: national view shows the cities of 100,000 or more (about 15 of
+ * them), close zoom everything. */
 function popFloor(Rpx) {
-  return Rpx < 5 ? 2e6 : Rpx < 8 ? 7e5 : Rpx < 14 ? 2.5e5 : Rpx < 24 ? 1.5e5 : Rpx < 40 ? 1e5 : Rpx < 70 ? 4e4 : 0;
+  return Rpx < 5 ? 1e5 : Rpx < 8 ? 5e4 : Rpx < 14 ? 2.5e4 : Rpx < 24 ? 1.2e4 : Rpx < 40 ? 5e3 : 0;
 }
 
 /**

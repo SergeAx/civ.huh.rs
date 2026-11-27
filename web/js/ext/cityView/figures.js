@@ -28,19 +28,27 @@ export function loadPainter() {
 }
 
 // Category colours (clothing / vehicle body). Picked to stay apart within a row and readable on the dark dock.
+// The painted figures (render/art/people.js) were drawn for the upstream rows. The education levels borrow the
+// nearest of them; faith and peoples have none, so they get the plain coloured figure (their "other" would
+// otherwise pick the commute row's cyclist).
+const ART_KIND = {
+  education: { none: "less_than_hs", primary: "high_school", secondary: "some_college", tertiary: "bachelors" },
+  faith: {},
+  people: {},
+};
+
 export const CATEGORY_COLOR = {
   workforce: {
     executive: "#3d4f86", engineer: "#2f8fc4", scholar: "#8a5bc4", healer: "#d8dde4", service: "#d07a3a",
     clerk: "#c9a23a", farmer: "#6c9a3a", builder: "#e0b020", maker: "#8a5a3a",
   },
   age: { child: "#7cc4e8", young: "#5fae6a", midlife: "#c08a4a", elder: "#a8a4b8" },
-  commute: {
-    drove_alone: "#c0503a", carpool: "#d0a040", transit: "#3a8ad0", walk: "#5fae6a", other: "#9a6ac4", home: "#c9a45c",
+  faith: { orthodox: "#d4a42c", catholic: "#4f7fd0", protestant: "#8a5ab8", islam: "#2f9a6a", other: "#9a8a7a", none: "#7a7f88" },
+  education: { none: "#7a7f88", primary: "#a88a5a", secondary: "#5f9ac4", tertiary: "#3a6ad0" },
+  people: {
+    serbs: "#c0392b", albanians: "#2c6fb7", hungarians: "#3a9a5b", bosniaks: "#1f8f8a", slovaks: "#7b5bb5",
+    bulgarians: "#d98c2b", other: "#9a8a7a",
   },
-  education: {
-    less_than_hs: "#7a7f88", high_school: "#a88a5a", some_college: "#5f9ac4", bachelors: "#3a6ad0", graduate: "#7a3ac4",
-  },
-  nativity: { born_in_state: "#c9a45c", other_state: "#5f9a7a", native_abroad: "#5a8ac0", foreign_born: "#c45a7a" },
 };
 
 const SKIN = "#e9cfa4"; // one parchment tone for every figure: the rows show occupations, ages and journeys, not race
@@ -60,9 +68,10 @@ export function figureCanvas(row, key, cssH, dpr = 1) {
   const ctx = cv.getContext("2d");
   ctx.scale(dpr, dpr);
   let done = false;
-  if (external) {
+  const art = row in ART_KIND ? ART_KIND[row][key] : key;
+  if (external && art) {
     try {
-      done = external(ctx, key, cssW / 2, cssH / 2, cssH, { row, color: CATEGORY_COLOR[row]?.[key] }) !== false;
+      done = external(ctx, art, cssW / 2, cssH / 2, cssH, { row, color: CATEGORY_COLOR[row]?.[key] }) !== false;
     } catch (e) {
       console.warn("people.js drawCitizen failed; using the City View's own figures", e);
       external = null;

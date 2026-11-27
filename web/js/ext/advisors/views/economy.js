@@ -1,6 +1,6 @@
 // Economy advisor: GDP by industry, metro GDP on the map, leaders, specialisation and growth vs output.
 import { esc, fin, ratio, colorScale, robustDomain, RAMPS } from "../core/util.js";
-import { money, dollars, pct, int, signedPct, count3, fmtShort } from "../core/fmt.js";
+import { money, euros, pct, int, signedPct, count3, fmtShort } from "../core/fmt.js";
 import { barList, rampLegend, sizeLegend } from "../core/charts.js";
 import { createTable } from "../core/table.js";
 import { createScatter } from "../core/scatter.js";
@@ -25,7 +25,7 @@ export function mount(ctx) {
   // --- headline -------------------------------------------------------------------------------------------------
   const topInd = Object.entries(gdpInd).filter(([, v]) => fin(v)).sort((a, b) => b[1] - a[1])[0];
   el.insertAdjacentHTML("beforeend", tiles([
-    { label: `GDP ${n.gdp_year || ""}`, value: money(n.gdp), sub: "current dollars" },
+    { label: `GDP ${n.gdp_year || ""}`, value: money(n.gdp), sub: "current euros" },
     { label: "Per person", value: money(ratio(n.gdp, n.population)), sub: "GDP ÷ residents" },
     { label: "Top industry", value: topInd ? short(nation.gdp_industries?.[topInd[0]] || topInd[0]) : "–", sub: topInd ? `${pct(topInd[1] / n.gdp)} of GDP` : "" },
   ]));
@@ -173,7 +173,7 @@ export function mount(ctx) {
     scatter.update({
       points: list.filter((r) => fin(r.v.gdp_pc) && fin(r.v.growth)).map((r) => ({ key: r.key, x: r.v.gdp_pc, y: r.v.growth, s: r.v.population, c: cv(r), label: r.name, sub: r.sub, row: r })),
       color, labels, colorLabel: colorBy === "none" ? null : colorBy === "lq" ? "LQ" : colorBy === "unemployment" ? "Unemployment" : "Income",
-      colorFmt: colorBy === "lq" ? (v) => `×${(+v).toFixed(2)}` : colorBy === "unemployment" ? pct : dollars,
+      colorFmt: colorBy === "lq" ? (v) => `×${(+v).toFixed(2)}` : colorBy === "unemployment" ? pct : euros,
     });
     legendEl.innerHTML = legend;
   }

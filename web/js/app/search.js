@@ -1,12 +1,15 @@
-// Top-bar search over cities and states: prefix matches first, then word-prefix, then substring; ties by population.
+// Top-bar search over cities and districts: prefix matches first, then word-prefix, then substring; ties by population.
+// Names match in both scripts (Cyrillic name and Latin name_lat), without diacritics; "dj" matches đ.
 import { esc, popShort } from "../format.js";
+import { t, placeName, toLatin } from "../i18n.js";
 import { icon } from "../ui/icon.js";
 
-const norm = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+const norm = (s) => String(s || "").toLowerCase().replace(/đ/g, "dj").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+const scripts = (cyr, lat) => [...new Set([norm(cyr), norm(lat || toLatin(cyr))])].filter(Boolean);
 const MAX = 8;
 
 /**
- * opts: {cities, states (list of {name, abbr, population?}), onPick({kind:'city'|'state', city?, index?})}
+ * opts: {cities, states (list of {name, name_lat?, abbr, population?}), onPick({kind:'city'|'state', city?, index?})}
  */
 export function initSearch(opts) {
   const input = document.getElementById("search-input");
@@ -14,19 +17,19 @@ export function initSearch(opts) {
   if (!input || !box) return { focus() {}, close() {}, get isOpen() { return false; } };
   // The full placeholder only fits the wide search box; narrower ones say just "Search".
   const narrow = matchMedia("(max-width: 1120px)");
-  const setPlaceholder = () => (input.placeholder = narrow.matches ? "Search" : "Search cities & states");
+  const setPlaceholder = () => (input.placeholder = narrow.matches ? t("Search") : t("Search cities & districts"));
   setPlaceholder();
   narrow.addEventListener?.("change", setPlaceholder);
 
   const entries = [];
   for (const c of opts.cities || []) {
-    entries.push({ kind: "city", city: c, name: c.name, n: norm(c.name), full: norm(c.full), pop: c.population || 0,
-      sub: c.full || "", label: c.name });
+    entries.push({ kind: "city", city: c, names: scripts(c.name, c.name_lat), full: scripts(c.full, c.full_lat).join(" "), pop: c.population || 0,
+      sub: c.full ? placeName({ name: c.full, name_lat: c.full_lat }) : "", label: placeName(c) });
   }
   (opts.states || []).forEach((s, index) => {
     if (!s) return;
-    entries.push({ kind: "state", index, name: s.name, n: norm(s.name), full: norm(s.abbr), abbr: (s.abbr || "").toLowerCase(),
-      pop: s.population || 0, sub: "State", label: s.name });
+    entries.push({ kind: "state", index, names: scripts(s.name, s.name_lat), full: norm(s.abbr), abbr: norm(s.abbr),
+      pop: s.population || 0, sub: t("District"), label: placeName(s) });
   });
 
   let results = [];
@@ -34,10 +37,11 @@ export function initSearch(opts) {
 
   function score(e, q) {
     if (e.abbr && e.abbr === q) return 0;
-    if (e.n.startsWith(q)) return e.n === q ? 0 : 1;
-    if ((" " + e.n).includes(" " + q)) return 2;
+    if (e.names.some((n) => n === q)) return 0;
+    if (e.names.some((n) => n.startsWith(q))) return 1;
+    if (e.names.some((n) => (" " + n).includes(" " + q))) return 2;
     if ((" " + e.full).includes(" " + q)) return 3;
-    if (e.n.includes(q)) return 4;
+    if (e.names.some((n) => n.includes(q))) return 4;
     if (e.full.includes(q)) return 5;
     return -1;
   }
@@ -64,7 +68,7 @@ export function initSearch(opts) {
 
   function render() {
     if (!results.length) {
-      box.innerHTML = input.value.trim() ? `<div class="sr-empty">No city or state matches “${esc(input.value.trim())}”</div>` : "";
+      box.innerHTML = input.value.trim() ? `<div class="sr-empty">${esc(t("No city or district matches “{query}”", { query: input.value.trim() }))}</div>` : "";
       box.hidden = !input.value.trim();
       input.setAttribute("aria-expanded", String(!box.hidden));
       input.removeAttribute("aria-activedescendant");

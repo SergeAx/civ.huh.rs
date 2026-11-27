@@ -1,6 +1,6 @@
 // Prosperity & Housing advisor: income vs home values, poverty, rents and unemployment.
 import { esc, fin, colorScale, RAMPS } from "../core/util.js";
-import { money, dollars, pct, int, count3, fmtShort } from "../core/fmt.js";
+import { money, euros, pct, int, count3, fmtShort } from "../core/fmt.js";
 import { barList, histogram, rampLegend } from "../core/charts.js";
 import { createTable } from "../core/table.js";
 import { createScatter } from "../core/scatter.js";
@@ -16,7 +16,7 @@ export function mount(ctx) {
   const { states, metros, counties } = data.levels;
 
   el.insertAdjacentHTML("beforeend", tiles([
-    { label: "Median income", value: dollars(n.median_income), sub: "per household" },
+    { label: "Median income", value: euros(n.median_income), sub: "per household" },
     { label: "Median home", value: money(n.home_value), sub: `${(n.home_value / n.median_income).toFixed(1)}× income` },
     { label: "Unemployment", value: pct(n.unemployment), sub: data.vintage },
   ]));
@@ -123,7 +123,7 @@ export function mount(ctx) {
 
   // --- rent -----------------------------------------------------------------------------------------------------
   const rBody = section(el, { title: "Rent burden by metro", note: `Median rent × 12 ÷ median household income, for metros of ${count3(METRO_MIN)}+ people. A ratio of two medians: renters usually earn less than the median household, so their real burden is higher.` });
-  const rentRows = (list) => list.map((x) => ({ key: x.r.key, label: x.r.name, sub: `${dollars(x.r.v.median_rent)}/mo`, value: x.v, text: pct(x.v), row: x.r }));
+  const rentRows = (list) => list.map((x) => ({ key: x.r.key, label: x.r.name, sub: `${euros(x.r.v.median_rent)}/mo`, value: x.v, text: pct(x.v), row: x.r }));
   const rOpts = { onHover: (r) => link.hover(r ? rowsHighlight(metros, [r.row]) : null), onClick: (r) => metros.focus(r.row) };
   const hi = topBy(metros.rows, (r) => r.v.rent_burden, { n: 10, min: METRO_MIN });
   const lo = topBy(metros.rows, (r) => r.v.rent_burden, { n: 5, min: METRO_MIN, asc: true });
