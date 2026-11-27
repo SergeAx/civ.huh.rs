@@ -42,7 +42,7 @@ export function initHelp() {
       </section>`).join("")}</div>
     <p class="help-foot">${t("Every number traces back to public data: open the {almanac} for sources.", { almanac: `<b>${esc(t("Almanac"))}</b>` })}
       ${esc(t("The link in the address bar always reopens this exact view."))}
-      ${t("Source code: {link} (MIT; run it with uv, see its README).", { link: `<a href="srbciv-source.zip" download>srbciv-source.zip</a>` })}</p>`;
+      ${t("A Serbian edition of {usaciv}, Andrej Karpathy's map of the United States.", { usaciv: `<a href="https://karpathy.ai/usaciv/" target="_blank" rel="noopener">usaciv</a>` })}</p>`;
 
   const close = () => {
     if (modal.hidden) return;

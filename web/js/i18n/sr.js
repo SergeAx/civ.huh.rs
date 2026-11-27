@@ -66,7 +66,7 @@ export default {
   "Controls": "Контроле",
   "Every number traces back to public data: open the {almanac} for sources.": "Сваки број потиче из јавних података. Извори: {almanac}.",
   "The link in the address bar always reopens this exact view.": "Веза у траци за адресу увек отвара баш овај приказ.",
-  "Source code: {link} (MIT; run it with uv, see its README).": "Изворни код: {link} (MIT; покреће се помоћу uv, видети README).",
+  "A Serbian edition of {usaciv}, Andrej Karpathy's map of the United States.": "Српско издање пројекта {usaciv}, мапе САД Андреја Карпатија.",
   "Search": "Претрага",
   "Search cities & districts": "Претрага градова и округа",
   "No city or district matches “{query}”": "Ниједан град ни округ не одговара упиту „{query}“",

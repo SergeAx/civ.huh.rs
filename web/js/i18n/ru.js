@@ -66,7 +66,7 @@ export default {
   "Controls": "Управление",
   "Every number traces back to public data: open the {almanac} for sources.": "Каждое число взято из открытых данных. Источники: {almanac}.",
   "The link in the address bar always reopens this exact view.": "Ссылка в адресной строке всегда открывает именно этот вид.",
-  "Source code: {link} (MIT; run it with uv, see its README).": "Исходный код: {link} (MIT; запускается через uv, см. README).",
+  "A Serbian edition of {usaciv}, Andrej Karpathy's map of the United States.": "Сербская версия {usaciv} — карты США Андрея Карпатого.",
   "Search": "Поиск",
   "Search cities & districts": "Поиск городов и округов",
   "No city or district matches “{query}”": "Нет города или округа по запросу «{query}»",
