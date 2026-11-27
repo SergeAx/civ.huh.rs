@@ -1,0 +1,3 @@
+name = "civ-huh-rs"
+pages_build_output_dir = "./dist/srbciv"
+compatibility_date = "2026-10-01"
