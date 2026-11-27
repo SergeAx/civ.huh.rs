@@ -23,8 +23,11 @@ import { formatLensTick } from "../../js/ui/lenses.js";
 
 const LAYER_KEYS = ["roads", "rail", "hubs", "military", "wonders", "trade"];
 
+const REQUIRED = new Set(["world", "cities", "nation", "lenses"]);
+
 async function json(base, name) {
   const r = await fetch(`${base}${name}.json`);
+  if (r.status === 404 && !REQUIRED.has(name)) return null; // an optional file this build doesn't make
   if (!r.ok) throw new Error(`${name}.json: HTTP ${r.status}`);
   return r.json();
 }
