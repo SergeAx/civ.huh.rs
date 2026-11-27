@@ -71,6 +71,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._send(200, b"GEO_ID|X\n0400000US01|1\n0500000US01001|2\n", "text/plain")
         if path == "/flaky-table":
             return self._send(503) if n == 1 else self._send(200, b"GEO_ID|X\n0500000US01001|2\n", "text/plain")
+        if path == "/echo" and self.command == "POST":  # like PxWeb: data only for a POSTed query
+            return self._send(200, b"POST:" + self.rfile.read(int(self.headers["Content-Length"])))
         if path == "/nohead":  # like EIA: HEAD is refused, a ranged GET works
             if self.command == "HEAD":
                 return self._send(503)
@@ -79,6 +81,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     do_GET = _route
     do_HEAD = _route
+    do_POST = _route
 
 
 def setUpModule():
@@ -127,6 +130,12 @@ class FetchTest(unittest.TestCase):
         self.assertEqual(m["bytes"], len(BODY))
         self.assertEqual(m["url"], self.base + "/ok")
         self.assertEqual(self._leftovers(), [])
+
+    def test_post_sends_the_body_and_records_it(self):
+        dest = self._dl("/echo", data=b'{"query": []}')
+        self.assertEqual(dest.read_bytes(), b'POST:{"query": []}')
+        m = fetch.read_manifest("src")["f.csv"]
+        self.assertEqual((m["method"], m["body"]), ("POST", '{"query": []}'))
 
     def test_cached_file_is_not_refetched(self):
         self._dl("/ok")

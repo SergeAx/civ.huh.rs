@@ -45,8 +45,8 @@ class UnexpectedContentError(RuntimeError):
     """The server answered 200 but with an HTML page instead of the expected file."""
 
 
-def _request(url: str, method: str = "GET", headers: dict | None = None) -> urllib.request.Request:
-    return urllib.request.Request(url, method=method, headers={"User-Agent": USER_AGENT, **(headers or {})})
+def _request(url: str, method: str = "GET", headers: dict | None = None, data: bytes | None = None) -> urllib.request.Request:
+    return urllib.request.Request(url, data=data, method=method, headers={"User-Agent": USER_AGENT, **(headers or {})})
 
 
 def _retryable(exc: BaseException) -> bool:
@@ -81,7 +81,9 @@ def read_manifest(source_id: str) -> dict:
     return json.loads(p.read_text()) if p.exists() else {}
 
 
-def _fetch_to(url: str, tmp: Path, timeout: int, headers: dict | None, expect_binary: bool) -> tuple[str, int]:
+def _fetch_to(
+    url: str, tmp: Path, timeout: int, headers: dict | None, expect_binary: bool, data: bytes | None = None
+) -> tuple[str, int]:
     """One download attempt into `tmp`. Returns (sha256 hex, size).
 
     A body shorter than the declared Content-Length (connection cut mid-transfer)
@@ -89,7 +91,8 @@ def _fetch_to(url: str, tmp: Path, timeout: int, headers: dict | None, expect_bi
     """
     digest = hashlib.sha256()
     size = 0
-    with urllib.request.urlopen(_request(url, headers=headers), timeout=timeout) as resp:
+    method = "GET" if data is None else "POST"
+    with urllib.request.urlopen(_request(url, method, headers, data), timeout=timeout) as resp:
         ctype = (resp.headers.get("Content-Type") or "").lower()
         length = resp.headers.get("Content-Length")
         identity = not resp.headers.get("Content-Encoding")
@@ -157,14 +160,18 @@ def download(
     timeout: int = 600,
     headers: dict | None = None,
     expect_binary: bool = False,
+    data: bytes | None = None,
 ) -> Path:
     """Download `url` to data/raw/<source_id>/<rel_path> unless already cached.
 
     `headers` are extra request headers. With `expect_binary=True` a text/html
     response is an error (some publishers answer missing files with a 200 page).
+    With `data` the request is a POST of that body, recorded in the manifest.
     """
+    extra = None if data is None else {"method": "POST", "body": data.decode("utf-8", "replace")}
     return _download_with(
-        source_id, url, rel_path, lambda tmp: _fetch_to(url, tmp, timeout, headers, expect_binary), force=force
+        source_id, url, rel_path, lambda tmp: _fetch_to(url, tmp, timeout, headers, expect_binary, data),
+        force=force, note="" if data is None else " (POST)", extra=extra,
     )
 
 
