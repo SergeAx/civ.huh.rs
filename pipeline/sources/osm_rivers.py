@@ -4,20 +4,14 @@ from __future__ import annotations
 
 import json
 import math
-import urllib.error
-import urllib.parse
 
 from ..core.source import Source, SourceInfo
+from . import _overpass
 
 WINDOW = (18.0, 41.4, 23.8, 46.6)  # west, south, east, north
 TOLERANCE_KM = 0.1  # Douglas-Peucker
 JOIN_GAP_KM = 1.0
 MIN_LINE_KM = 2.0  # braid fragments and side arms shorter than this are dropped
-OVERPASS = (
-    "https://overpass-api.de/api/interpreter",
-    "https://overpass.private.coffee/api/interpreter",
-    "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
-)
 FILE = "overpass_rivers.json"
 
 # Serbian name, rank (drawn width ∝ 10 - rank), Wikidata id, OSM selector: the river relation tagged with that
@@ -256,24 +250,11 @@ class OsmRivers(Source):
     )
 
     def fetch(self, force=False):
-        q = query()
-        last = None
-        for endpoint in OVERPASS:
-            try:
-                path = self.download(endpoint, FILE, force=force, data=urllib.parse.urlencode({"data": q}).encode())
-            except urllib.error.URLError as exc:
-                last = exc
-                print(f"      {endpoint} failed: {exc}")
-                continue
-            doc = json.loads(path.read_text(encoding="utf-8"))
-            missing = [qid for qid, ways in group_ways(doc.get("elements", [])).items() if not ways]
-            if "error" not in doc.get("remark", "") and not missing:
-                return
-            last = RuntimeError(f"{endpoint}: incomplete answer ({doc.get('remark') or f'no ways for {missing}'})")
-            print(f"      {last}")
-            self.discard(FILE)
-            force = True
-        raise RuntimeError("the Overpass river query failed on every mirror") from last
+        def problem(elements):
+            missing = [qid for qid, ways in group_ways(elements).items() if not ways]
+            return f"no ways for {missing}" if missing else None
+
+        _overpass.query(self, query(), FILE, problem, force=force)
 
     def process(self):
         elements = json.loads((self.raw_dir / FILE).read_text(encoding="utf-8"))["elements"]

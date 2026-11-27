@@ -48,16 +48,15 @@ Coordinates are WGS84 lon/lat rounded to 5 decimals.
 from __future__ import annotations
 
 import csv
-import http.client
 import io
 import json
 import re
-import urllib.parse
 import zipfile
 from collections import Counter, defaultdict
 
 from ..core import fetch
 from ..core.source import Source, SourceInfo
+from . import _overpass
 from ._topology import (
     UTM, area2, bbox, contains, dissolve, intersect, join_ways, oriented, overlay, simplify_coverage, split_edges,
     wkt_polygons,
@@ -66,11 +65,6 @@ from ._topology import (
 RPJ = "https://download.geosrbija.rs/download-api/opendata-proxy/export?category=rpj&layer={0}_rpj&geometry=true&fileName={0}&format=csv"
 RPJ_LAYERS = ("opstina", "okrug", "naselje", "katastarska_opstina")
 RZS = "https://opendata.stat.gov.rs/data/WcfJsonRestService.Service1.svc/dataset/SIFOPS/{}/csv"
-OVERPASS = (
-    "https://overpass-api.de/api/interpreter",
-    "https://overpass.private.coffee/api/interpreter",
-    "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
-)
 OSM_KIM = (
     '[out:json][timeout:180];area["ISO3166-1"="XK"][admin_level=2]->.k;'
     'rel(area.k)[boundary=administrative][admin_level=6][!"ref:RS:okrug"]->.m;'
@@ -214,27 +208,15 @@ class Boundaries(Source):
             self.download(RPJ.format(layer), f"rpj/{layer}.zip", force=force, expect_binary=True)
         for lang, script in ((1, "cyr"), (2, "lat")):
             self.download(RZS.format(lang), f"rzs/sifops_{script}.csv", force=force)
-        self._overpass(OSM_KIM, "osm/kim_municipalities.json", lambda d: self._kim_relations(d), force)
-        self._overpass(OSM_RS, "osm/rs_seats.json", lambda d: len([e for e in d if e["type"] == "relation"]) >= 150, force)
-
-    def _overpass(self, query: str, rel_path: str, valid, force: bool) -> None:
-        """Overpass answers overload with 5xx and timeouts with a 200 'remark': try the next mirror."""
-        last = None
-        for endpoint in OVERPASS:
-            try:
-                path = self.download(f"{endpoint}?data={urllib.parse.quote(query)}", rel_path, force=force)
-            except (OSError, http.client.HTTPException) as exc:
-                last = exc
-                print(f"      {endpoint} failed: {exc}")
-                continue
-            doc = json.loads(path.read_text(encoding="utf-8"))
-            if "error" not in doc.get("remark", "") and valid(doc["elements"]):
-                return
-            last = RuntimeError(f"{endpoint}: incomplete answer ({doc.get('remark', 'validation failed')})")
-            print(f"      {last}")
-            self.discard(rel_path)
-            force = True
-        raise RuntimeError(f"Overpass query for {rel_path} failed on every mirror") from last
+        _overpass.query(
+            self, OSM_KIM, "osm/kim_municipalities.json",
+            lambda d: None if self._kim_relations(d) else "not all 38 Kosovo municipalities", force=force,
+        )
+        _overpass.query(
+            self, OSM_RS, "osm/rs_seats.json",
+            lambda d: None if sum(e["type"] == "relation" for e in d) >= 150 else "fewer than 150 municipalities",
+            force=force,
+        )
 
     # --- readers -----------------------------------------------------------------
 
