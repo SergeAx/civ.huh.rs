@@ -22,7 +22,7 @@ export default {
   "Almanac": "Алманах",
   "Close the Almanac": "Затвори Алманах",
   "Almanac pages": "Одељци Алманаха",
-  "Serbia as a strategy game": "Србија као стратешка игра",
+  "Serbian Civilization": "Српска Цивилизација",
   "Serbia": "Србија",
   "Surveying the land…": "Премеравамо земљу…",
   "District": "Округ",

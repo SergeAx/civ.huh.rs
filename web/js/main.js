@@ -26,7 +26,7 @@ import { t, placeName, toLatin, localizeData, localizeMap } from "./i18n.js";
 const { drawStatic, drawOverlay, OCEAN_BG } = mapRender;
 
 function localizeStatic() {
-  document.title = t("Serbia as a strategy game");
+  document.title = t("Serbian Civilization");
   const brand = document.querySelector(".brand");
   if (brand) brand.title = t("Serbia");
   const brandText = document.querySelector(".brand-text");
