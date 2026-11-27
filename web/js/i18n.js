@@ -88,7 +88,7 @@ export function setLang(id) {
   location.assign(url);
 }
 
-const TEXT_KEYS = new Set(["name", "label", "description", "rule", "note", "unit", "vintage", "gdp_vintage", "title", "used_for", "text"]);
+const TEXT_KEYS = new Set(["name", "label", "description", "rule", "note", "unit", "vintage", "gdp_vintage", "title", "used_for", "text", "publisher", "rules"]);
 
 /** Translate, in place, the English text fields of data the pipeline wrote (lens and table names, rules, notes...).
  * Place names are untouched: they are Cyrillic and have no catalog entry, and placeName() picks their script. */
@@ -101,10 +101,11 @@ export function localizeData(node) {
   for (const [k, v] of Object.entries(node)) {
     if (typeof v === "string" && TEXT_KEYS.has(k)) node[k] = t(v);
     else if (Array.isArray(v) && TEXT_KEYS.has(k)) node[k] = v.map((x) => (typeof x === "string" ? t(x) : localizeData(x)));
+    else if (v && typeof v === "object" && TEXT_KEYS.has(k)) node[k] = localizeMap(v);
     else if (v && typeof v === "object" && k !== "values") localizeData(v);
   }
   return node;
 }
 
-/** Every string value of a flat {key: English} map, translated (industry labels and the like). */
-export const localizeMap = (m) => (m ? Object.fromEntries(Object.entries(m).map(([k, v]) => [k, t(v)])) : m);
+/** The string values of a flat {key: English} map, translated (industry labels, rule texts); others kept. */
+export const localizeMap = (m) => (m ? Object.fromEntries(Object.entries(m).map(([k, v]) => [k, typeof v === "string" ? t(v) : v])) : m);

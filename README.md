@@ -41,6 +41,10 @@ library only, and no source needs an API key. `uv run python -m pipeline list` s
   and each municipality's share is estimated from its employees in each activity group.
 - **Lenses.** Density, mean age, aged 65+, growth since 2011, unemployment, wages, GDP per person, degrees, no primary
   school, largest people, largest faith, believers, forest, farmland and built-up land.
+- **Tile improvements.** Motorways and state roads, railways in three tiers (the 200 km/h Belgrade–Novi Sad–Subotica
+  line on top), river ports and airports, all from OpenStreetMap.
+- **Resources.** Every lignite and gas power plant, hydro, wind and solar plants from 10 MW, and the working lignite,
+  copper and lead-zinc mines, with the capacities and output EPS, KOSTT, AERS, ERO and Zijin publish.
 
 ### Kosovo and Metohija
 
@@ -58,7 +62,8 @@ their growth is blank too.
 | Census 2022, registered employment, wages, GVA by okrug | Statistical Office of the Republic of Serbia (RZS) | Everything outside KiM |
 | Census 2024, GDP and wages | Kosovo Agency of Statistics (ASK) | Kosovo and Metohija |
 | Register of spatial units | Republic Geodetic Authority (RGZ) | Municipal and okrug boundaries |
-| Municipalities of Kosovo, seats, rivers | OpenStreetMap contributors (ODbL) | KiM boundaries, city positions, rivers |
+| Municipalities of Kosovo, seats, rivers, roads, railways, ports, airports | OpenStreetMap contributors (ODbL) | KiM boundaries, city positions, the map's lines and hubs |
+| Power plants and mines | EPS, KOSTT, AERS, ERO, Zijin Mining, OpenStreetMap | Resources |
 | CORINE Land Cover 2018 | Copernicus / EEA | Land cover, lakes |
 | ETOPO 2022 | NOAA NCEI | Relief |
 | Natural Earth 1:10m, Wikidata names | Natural Earth, Wikidata | Neighbouring countries |
@@ -88,8 +93,8 @@ GitHub Actions runs the unit tests and the data check on every push; deploys are
 
 ## Not yet ported
 
-Advisors, city districts, roads and railways, power plants and mines, wonders, trade routes and military sites: their
-US sources are gone and their Serbian ones are still to be written. The code that draws them is in place.
+Advisors, city districts, wonders, trade routes and military sites: their US sources are gone and their Serbian ones
+are still to be written. The code that draws them is in place.
 
 ## Licence
 

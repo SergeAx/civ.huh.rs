@@ -10,16 +10,18 @@ character.
 
 from __future__ import annotations
 
+import json
 import math
 from collections import deque
 
 from ..core.hexgrid import HexGrid
+from ..core.paths import WEB_DATA
 from ..core.store import load_interim, write_web
 from .okruzi import OKRUZI
 from .units import economy, growth_of, load_units
 from .yields import YIELDS
 
-REQUIRES = ["_world", "rzs_census", "rzs_economy", "ask_kosovo"]
+REQUIRES = ["_world", "rzs_census", "rzs_economy", "ask_kosovo", "resources.json"]
 PRODUCES = ["states.json"]
 
 MIN_LABEL, MAX_LABEL = 14.0, 110.0  # suggested font height range, map units
@@ -119,12 +121,35 @@ def land_shares(world: dict, s: int) -> dict | None:
     return {k: round(sum(pct[k][i] for i in cells) / len(cells) / 100, 3) for k in PCT_KEYS}
 
 
+ENERGY_NOTE = ("Only the power plants mapped as resources, each above its type's size threshold (hydro, wind and solar "
+               "from 10 MW), are counted: this is not the okrug's total generating capacity.")
+
+
+def energy_by_okrug() -> dict[str, dict]:
+    """abbr → {unit, total, by_type, sites} summed from resources.json items of every MW type ("" is the empty row)."""
+    res = json.loads((WEB_DATA / "resources.json").read_text(encoding="utf-8"))
+    mw_types = [t["id"] for t in res["types"] if t["unit"] == "MW"]
+    mw: dict[str, dict] = {}
+    sites: dict[str, dict] = {}
+    for it in res["items"]:
+        if it["type"] in mw_types:
+            mw.setdefault(it["state"], dict.fromkeys(mw_types, 0))[it["type"]] += it["value"] or 0
+            sites.setdefault(it["state"], dict.fromkeys(mw_types, 0))[it["type"]] += 1
+    out = {}
+    for abbr in ["", *mw]:
+        by_type = {k: round(v) for k, v in mw.get(abbr, dict.fromkeys(mw_types, 0)).items()}
+        out[abbr] = {"unit": "MW", "total": sum(by_type.values()), "by_type": by_type,
+                     "sites": sites.get(abbr, dict.fromkeys(mw_types, 0)), "note": ENERGY_NOTE}
+    return out
+
+
 def build() -> None:
     world = load_interim("_world")
     units, gva = load_units(load_interim("rzs_census"), load_interim("rzs_economy"), load_interim("ask_kosovo"))
     grid = HexGrid(**world["grid"])
     owner = world["owner"]
     meta = {o["code"]: o for o in OKRUZI}
+    energy = energy_by_okrug()
 
     states = []
     for i, code in enumerate(world["states"]):
@@ -151,7 +176,7 @@ def build() -> None:
                 "ranks": {},
                 "label": label_anchor(grid, owner, i, o["name_cyr"]),
                 "land": land_shares(world, i),
-                "energy": None,
+                "energy": dict(energy.get(o["abbr"]) or energy[""]),
             }
         )
     for y in YIELDS:

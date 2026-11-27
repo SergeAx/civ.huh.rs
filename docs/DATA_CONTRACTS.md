@@ -26,8 +26,13 @@ still describes the US build, these rules win:
 * **Growth** runs from the 2011 census to the row's own census: `growth_years` is `[2011, 2022]` or `[2011, 2024]`.
   A row whose 2011 count is unusable has null growth and null `growth_years`.
 * **Water** is land (0) or lake (3); there is no ocean or coast. Foreign land (`owner` −2) has land cover and `pct`.
-* **Not built:** resources, infrastructure, military, wonders, trade, districts and disasters. They are optional, so
-  the app and `check` skip them.
+* **Infrastructure** has three rail tiers: 0 high-speed, 1 main, 2 branch; its road classes are 0 motorway and
+  1 state road. Ports and airports carry `name_lat`; port `tons` and airport `enplanements` (passengers) are null where
+  no official figure is published, and `hub` is always null.
+* **Resources** values are MW for plants and tonnes a year for mines (null where output is not published per mine);
+  items carry `name_lat`.
+* **Not built:** military, wonders, trade, districts and disasters. They are optional, so the app and `check` skip
+  them, and the Map menu shows only the switches whose file exists.
 
 ## Pipeline conventions
 

@@ -8,36 +8,21 @@ import { MODE_STYLE } from "../../render/art/improvements.js";
 
 const muted = (s) => `<span class="muted">${s}</span>`;
 const num = (n) => (n == null || !Number.isFinite(n) ? "–" : compact(n));
-const sign = (x) => (x > 0 ? "+" : x < 0 ? "−" : "±");
 const placeText = (name, nameLat) => (name ? placeName({ name, name_lat: nameLat }) : "");
 
-const HUB_NAME = { L: t("Large hub"), M: t("Medium hub"), S: t("Small hub"), N: t("Nonhub primary airport") };
-const PORT_TYPE = { coastal: t("Coastal port"), great_lakes: t("Great Lakes port"), inland: t("River port") };
+const PORT_TYPE = { inland: t("River port") };
 
 export const tips = {
-  port(p, m) {
-    const yr = p.year ?? "";
-    const lines = [
-      `<b>${esc(placeName(p))}</b> ${muted(esc([PORT_TYPE[p.type] || t("Port"), p.state].filter(Boolean).join(", ")))}`,
-      t("#{rank} by tonnage · {tons} short tons ({year})", { rank: esc(p.rank), tons: `<b>${num(p.tons)}</b>`, year: esc(yr) }),
-    ];
-    if (p.foreign != null || p.domestic != null) lines.push(esc(t("Foreign {foreign} · domestic {domestic}", { foreign: num(p.foreign), domestic: num(p.domestic) })));
-    if (p.imports != null || p.exports != null) lines.push(esc(t("Imports {imports} · exports {exports}", { imports: num(p.imports), exports: num(p.exports) })));
-    lines.push(muted(esc(t("USACE principal ports; placed at the port area's centre (long river ports are approximate)."))));
+  port(p) {
+    const lines = [`<b>${esc(placeName(p))}</b> ${muted(esc([PORT_TYPE[p.type] || t("Port"), p.river, p.state].filter(Boolean).join(", ")))}`];
+    if (p.tons != null) lines.push(t("#{rank} by cargo · {tons} t ({year})", { rank: esc(p.rank), tons: `<b>${num(p.tons)}</b>`, year: esc(p.year ?? "") }));
+    lines.push(muted(esc(t("Port area mapped in OpenStreetMap, placed at its centre."))));
     return lines.join("<br>");
   },
   airport(a) {
-    const lines = [`<b>${esc(a.id)} · ${esc(placeName(a))}</b> ${muted(esc([placeText(a.city, a.city_lat), a.state].filter(Boolean).join(", ")))}`];
-    lines.push(esc(a.hub ? HUB_NAME[a.hub] || a.hub : t("All-cargo airport (not a primary passenger airport)")));
-    if (a.enplanements != null) {
-      const count = `<b>${num(a.enplanements)}</b>`;
-      if (a.enplanements_prev > 0) {
-        const r = a.enplanements / a.enplanements_prev - 1;
-        lines.push(t("{count} boardings in {year} ({change} on {prev})", { count, year: esc(a.year), change: sign(r) + pct(Math.abs(r), 1), prev: esc(a.year - 1) }));
-      } else lines.push(t("{count} boardings in {year}", { count, year: esc(a.year) }));
-    }
-    if (a.cargo_lbs != null) lines.push(esc(t("All-cargo landed weight {weight} lb", { weight: num(a.cargo_lbs) })));
-    lines.push(muted(esc(t("FAA CY enplanements and all-cargo data."))));
+    const lines = [`<b>${esc(a.id)} · ${esc(placeName(a))}</b> ${muted(esc(a.state || ""))}`];
+    if (a.enplanements != null) lines.push(t("{count} passengers in {year}", { count: `<b>${num(a.enplanements)}</b>`, year: esc(a.year ?? "") }));
+    else lines.push(muted(esc(t("No published passenger count."))));
     return lines.join("<br>");
   },
   fort(f, m) {

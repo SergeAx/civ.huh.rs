@@ -95,7 +95,7 @@ function buildPieces(w, links, classes, offsetOf = null) {
 
 /**
  * infrastructure.json → {roads: tiles, rail: tiles, roadLinks: Set, ports, airports, counts}.
- * Road classes: 0 Interstate, 1 major highway. Rail tiers: 0 main, 1 secondary.
+ * Road classes: 0 motorway, 1 state road. Rail tiers: 0 high-speed, 1 main, 2 branch.
  */
 export function prepareNetwork(w, infra) {
   const roads = Array.isArray(infra?.roads) ? infra.roads : [];
@@ -107,7 +107,7 @@ export function prepareNetwork(w, infra) {
   const railOff = (a, b) => (roadLinks.has(a < b ? `${a},${b}` : `${b},${a}`) ? 0.2 * R : 0);
   return {
     roads: buildPieces(w, roads, [1, 0]),
-    rail: buildPieces(w, rail, [1, 0], railOff),
+    rail: buildPieces(w, rail, [2, 1, 0], railOff),
     roadLinks,
     counts: { roads: roads.length, rail: rail.length },
   };
@@ -186,7 +186,8 @@ export function drawRoads(ctx, net, vp, o) {
   ctx.globalAlpha = a0;
 }
 
-/** Railroads: a ballast bed, sleepers (near), a steel line with a bright edge. Secondary lines thinner, nearer. */
+/** Railways: a ballast bed, sleepers (near), a steel line with a bright edge. Branch lines thinner, nearer;
+ * high-speed track wider, with a red stripe (Soko's livery) instead of the bright edge. */
 export function drawRail(ctx, net, vp, o) {
   if (!net || o.Rpx < ROAD_MIN_RPX) return;
   const s = vp.s, Rpx = o.Rpx;
@@ -196,9 +197,9 @@ export function drawRail(ctx, net, vp, o) {
   const a0 = ctx.globalAlpha;
   ctx.globalAlpha = a0 * fade;
   ctx.lineJoin = "round";
-  const tiers = Rpx >= RAIL2_MIN_RPX ? [1, 0] : [0];
+  const tiers = Rpx >= RAIL2_MIN_RPX ? [2, 1, 0] : [1, 0];
   for (const tier of tiers) {
-    const k = tier === 0 ? 1 : 0.72;
+    const k = tier === 0 ? 1.2 : tier === 1 ? 1 : 0.72;
     const tie = clamp(Rpx * 0.11, 2.6, 9) * k; // sleeper length (css px)
     const steel = clamp(Rpx * 0.022, 0.9, 2.4) * k;
     // ballast bed: a pale casing, so the line reads on dark forest as well as on pale plains
@@ -209,7 +210,7 @@ export function drawRail(ctx, net, vp, o) {
     if (Rpx >= 16) {
       // sleepers: a dashed line as wide as a sleeper is long
       ctx.lineCap = "butt";
-      ctx.strokeStyle = tier === 0 ? "#4a3424" : "rgba(74,52,36,.85)";
+      ctx.strokeStyle = tier <= 1 ? "#4a3424" : "rgba(74,52,36,.85)";
       ctx.lineWidth = tie / s;
       const gap = clamp(Rpx * 0.06, 2.2, 6);
       ctx.setLineDash([Math.max(0.9, gap * 0.45) / s, gap / s]);
@@ -220,7 +221,11 @@ export function drawRail(ctx, net, vp, o) {
     ctx.strokeStyle = "#2a2522";
     ctx.lineWidth = (steel + (Rpx >= 16 ? 0 : 0.5)) / s;
     strokeAll(ctx, tiles, tier);
-    if (Rpx >= DETAIL_RPX) {
+    if (tier === 0) {
+      ctx.strokeStyle = "#d8352a";
+      ctx.lineWidth = Math.max(0.7, steel * 0.45) / s;
+      strokeAll(ctx, tiles, tier);
+    } else if (Rpx >= DETAIL_RPX) {
       ctx.strokeStyle = "rgba(210,214,222,.7)";
       ctx.lineWidth = Math.max(0.5, steel * 0.35) / s;
       strokeAll(ctx, tiles, tier);

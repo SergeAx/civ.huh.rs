@@ -78,6 +78,7 @@ async function main() {
   localizeData(lensFile);
   localizeData(world.tables);
   localizeData(sources);
+  localizeData(resources);
   for (const y of nation.yields || []) y.description = t(y.description);
   nation.vintage = t(nation.vintage);
   nation.gdp_vintage = t(nation.gdp_vintage);
