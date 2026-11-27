@@ -6,5 +6,6 @@ __pycache__/
 *.part
 .DS_Store
 .claude/
+.env
 out/
 dist/
