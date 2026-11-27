@@ -63,7 +63,7 @@ COVER = [
     (6, "pasture", "Pasture", "#8fb04e", [231, 243], "Pastures (231) and farmland mixed with natural vegetation (243) are the largest group."),
     (7, "cropland", "Cropland", "#c2b84e", [211, 212, 213, 221, 222, 223, 241, 242], "Arable land, vineyards, orchards and mixed cultivation (211–242) are the largest group."),
     (8, "wetland", "Wetland", "#4f8a6e", [411, 412], "Inland marshes and peat bogs (411, 412) are the largest group."),
-    (9, "urban", "Urban", "#8a8378", [111, 112, 121, 122, 123, 124, 133], f"Urban fabric, industry, transport and construction sites (111–124, 133) are ≥ {URBAN_MIN_PCT}% of the hex's land, whatever else is there."),
+    (9, "urban", "Urban", "#7f8a6c", [111, 112, 121, 122, 123, 124, 133], f"Urban fabric, industry, transport and construction sites (111–124, 133) are ≥ {URBAN_MIN_PCT}% of the hex's land, whatever else is there."),
     (10, "barren", "Barren", "#bfae95", [131, 132, 331, 332], "Mines, dumps, sand and bare rock (131, 132, 331, 332) are the largest group: the open-pit mines of Kolubara, Kostolac and Bor show up here."),
     (11, "ice", "Ice & snow", "#e8eef2", [335], "Glaciers and perpetual snow (335) are the largest group."),
 ]

@@ -25,6 +25,11 @@ BELGRADE = "79014"
 BELGRADE_URBAN = ["70106", "70114", "70149", "70157", "70181", "70203", "70211", "70220", "70246", "70254", "71293"]
 BELGRADE_SEAT = "70246"  # Stari grad
 METRO_MIN_POP = 50_000
+DISTRICT_MIN_POP = 200_000
+URBAN_COVER = 9  # world.py's urban cover id
+# Urban hexes of these municipalities get their own look; the rest of a big city's urban hexes are drawn as green
+# mid-rise city.
+DISTRICT_STYLE = {"70181": "highrise", "70157": "historic"}  # Novi Beograd's tower blocks, Zemun's old town
 GVA_GROUP_LABELS = {
     "A": "Agriculture, forestry & fishing", "B-E": "Industry & energy", "F": "Construction",
     "G-I": "Trade, transport, hotels & restaurants", "J": "Information & communication", "K": "Finance & insurance",
@@ -100,6 +105,17 @@ def footprints(world: dict, members: dict[str, list[str]]) -> dict[str, set[int]
         for cid, n in votes.items():
             if n >= FOOTPRINT_MAJORITY:
                 out.setdefault(cid, set()).add(cell)
+    return out
+
+
+def districts(world: dict, city: dict, taken: set[int]) -> list[list]:
+    """[cell, style] for the city's urban footprint hexes other than its own: drawn as city blocks, not suburbs."""
+    out = []
+    for cell in city["footprint"]:
+        if cell in taken or world["cover"][cell] != URBAN_COVER:
+            continue
+        k = world["county"][cell]
+        out.append([cell, DISTRICT_STYLE.get(world["counties"][k] if k >= 0 else None, "urban")])
     return out
 
 
@@ -235,8 +251,10 @@ def build() -> None:
         c["cell"] = cell
 
     feet = footprints(world, {c["id"]: c["counties"] for c in cities})
+    taken = {c["cell"] for c in cities}
     for c in cities:
         c["footprint"] = sorted(feet.get(c["id"], set()) | {c["cell"]})
+        c["districts"] = districts(world, c, taken) if c["population"] >= DISTRICT_MIN_POP else []
     add_ranks(cities)
 
     print(f"    {len(cities)} cities")

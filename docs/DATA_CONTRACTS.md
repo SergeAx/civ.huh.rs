@@ -20,7 +20,8 @@ still describes the US build, these rules win:
   KiM. Every row also has `name_lat`.
 * **Cities** are municipalities at their seat (`id` = municipality or city code; Belgrade is `79014`), with `name`
   (Cyrillic), `name_lat`, `kim`, `reliable` and `pop_year` (2022, or 2024 in KiM). `pop_series` holds every census
-  (RZS) or ASK's yearly estimates.
+  (RZS) or ASK's yearly estimates. Cities of 200,000 or more also carry `districts`: `[cell, style]` for their other
+  urban footprint hexes, drawn as city blocks in the style `urban`, `highrise` (Novi Beograd) or `historic` (Zemun).
 * **Money is euros**: the yield and lens unit is `eur`, not `usd`. Gold is GDP, estimated per municipality from okrug
   value added (`pipeline/build/units.py` `add_gva`); `gdp_estimated` lists the activity groups so estimated.
 * **Growth** runs from the 2011 census to the row's own census: `growth_years` is `[2011, 2022]` or `[2011, 2024]`.

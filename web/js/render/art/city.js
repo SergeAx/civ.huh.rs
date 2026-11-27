@@ -53,12 +53,19 @@ export const cityIsDot = (city, Rpx) =>
 // --- metro spill ----------------------------------------------------------------------------------------------
 const SPILL_MIN_POP = 1.5e6;
 const spills = new WeakMap(); // world → Map(cell → pseudo-city)
-/** Neighbour hexes of big metros drawn as smaller city tiles: 1 for 1.5M+, 2 for 5M+, the most developed urban ones. */
+/** Hexes drawn as extra city tiles: a city's styled districts (cities.json `districts`: [cell, style]), then for
+ *  1.5M+ metros the most developed urban neighbours (1, or 2 for 5M+). */
 export function metroSpill(w) {
   let out = spills.get(w);
   if (out) return out;
   out = new Map();
   const { grid } = w, dev = w.pct?.developed;
+  for (const city of w.cityByCell.values()) {
+    for (const [cell, style] of city.districts || []) {
+      if (w.water[cell] || w.cityByCell.has(cell) || out.has(cell)) continue;
+      out.set(cell, { id: `district-${cell}`, name: city.name, capital: false, of: city, population: 5e5, style });
+    }
+  }
   for (const [cell, city] of w.cityByCell) {
     if (!(city.population >= SPILL_MIN_POP)) continue;
     const cand = [];
@@ -98,6 +105,16 @@ export const CITY_CLASSES = [
   { id: "megalopolis", min: 5e6, extent: 0.96, lot: 0.145, core: 0.36, mid: 0.08, height: 0.68, park: 0.05, ragged: 0.12, grey: 0.26, fringe: false },
 ];
 const LOT_MIN_PX = 5.5;
+//   full     the lawn base covers the whole hex, so neighbouring district tiles join into one city
+//   trees    street trees at block corners
+//   slab     every built block is a lawn with slab towers (Novi Beograd's blokovi)
+//   old      every built block is a ring of three- and four-storey houses with tiled roofs (Zemun, Austro-Hungarian)
+export const DISTRICT_CLASSES = {
+  urban: { id: "d-urban", extent: 0.94, lot: 0.3, core: 0.97, mid: 0, height: 0.3, park: 0.35, ragged: 0, grey: 0, civic: true, full: true, trees: true },
+  highrise: { id: "d-highrise", extent: 0.94, lot: 0.3, core: 1, mid: 1, height: 0.38, park: 0.2, ragged: 0, grey: 0, full: true, slab: true },
+  historic: { id: "d-historic", extent: 0.94, lot: 0.24, core: 1, mid: 1, height: 0.1, park: 0.06, ragged: 0, grey: 0, civic: true, full: true, old: true, trees: true },
+};
+const classOf = (city) => (city.style && DISTRICT_CLASSES[city.style]) || cityClass(city.population);
 
 export function cityClass(population) {
   let c = CITY_CLASSES[0];
@@ -119,6 +136,10 @@ const P = {
   glass: [[118, 160, 190], [96, 128, 158], [150, 178, 196], [196, 170, 112], [128, 170, 176]],
   marble: [240, 236, 224], dome: [246, 244, 236], white: [244, 240, 230],
 };
+
+const PANEL = [[232, 230, 222], [214, 212, 204], [200, 198, 192], [226, 216, 198]];
+const OLD_WALLS = [[238, 206, 120], [240, 228, 198], [232, 200, 176], [222, 198, 150], [244, 236, 214]];
+const OLD_ROOFS = [[178, 84, 56], [162, 72, 50], [190, 100, 62]];
 
 // --- geometry ------------------------------------------------------------------------------------------------------
 // Iso ground axes (screen units per km along each axis); the up vector is (0, -1).
@@ -652,6 +673,8 @@ function gridLayout(cls, seed, R, Rpx, capital) {
   for (const l of free) {
     if (l.type) continue;
     if (H(l.id, 13) < cls.park) l.type = "park";
+    else if (cls.slab) l.type = "slab";
+    else if (cls.old) l.type = "old";
     else if (l.c > cls.core && H(l.id, 15) < 0.9) l.type = "core";
     else if (l.c > cls.mid) l.type = "mid";
     else l.type = "res";
@@ -832,7 +855,7 @@ function capitolItems(p, C) {
 // --- painting a whole tile ---------------------------------------------------------------------------------------
 
 function paintTile(g, city, R, Rpx, dev, detail, col, seed, capital) {
-  const cls = cityClass(city.population);
+  const cls = classOf(city);
   const sCss = Rpx / R;
   const p = new Painter(g, R, sCss, dev, detail, col);
   const items = cls.village ? paintVillage(p, seed, col, Rpx) : paintGrid(p, cls, seed, Rpx, capital);
@@ -862,21 +885,21 @@ function paintGrid(p, cls, seed, Rpx, capital) {
   const g = p.g, R = p.R;
   const lay = gridLayout(cls, seed, R, Rpx, capital);
   const { L, half, bh, lots, fringe } = lay;
-  const ci = CITY_CLASSES.indexOf(cls);
+  const ci = cls.full ? 2 : CITY_CLASSES.indexOf(cls);
   const accent = p.accent;
   const r0 = (id, salt) => hash01(seed * 7919 + id, salt);
 
   // 1. A suburban lawn base, opaque in the middle and feathered out to nothing near the hex edge, so the built-up
   //    land blends into the forest, fields or suburbs around it (no pad, no rim).
   g.save();
-  hexPath(g, 0, 0, R, 0.97);
+  hexPath(g, 0, 0, R, cls.full ? 1 : 0.97);
   g.clip();
   const lawn = mix(mix(P.lawn, [96, 128, 66], 0.4), P.concrete, cls.grey * 0.6);
   const lg = g.createRadialGradient(-R * 0.08, -R * 0.1, 0, 0, 0, R * 0.97);
   lg.addColorStop(0, css(shade(lawn, 0.04)));
   lg.addColorStop(0.5, css(lawn, 0.96));
-  lg.addColorStop(0.7, css(shade(lawn, -0.06), 0.5));
-  lg.addColorStop(0.88, css(shade(lawn, -0.08), 0));
+  lg.addColorStop(0.7, css(shade(lawn, -0.06), cls.full ? 1 : 0.5));
+  lg.addColorStop(0.88, css(shade(lawn, -0.08), cls.full ? 1 : 0));
   g.fillStyle = lg;
   g.fillRect(-R, -R, 2 * R, 2 * R);
   // a little mottling so the base isn't flat (kept inside the opaque middle)
@@ -902,7 +925,7 @@ function paintGrid(p, cls, seed, Rpx, capital) {
   hexPath(g, 0, 0, R, 0.95); // keep the feather off the neighbouring hexes
   g.clip();
   p.feather(kerb, css(P.kerb), R * 0.05, "rgba(40,36,28,.55)");
-  g.fillStyle = css(shade(P.asphalt, ci * 0.03));
+  g.fillStyle = css(cls.full ? mix(P.asphalt, P.kerb, 0.35) : shade(P.asphalt, ci * 0.03)); // districts: quieter streets
   g.fill(pad);
   g.restore();
 
@@ -913,7 +936,8 @@ function paintGrid(p, cls, seed, Rpx, capital) {
   for (const l of lots) {
     if (l.type === "reserved") continue;
     poly(paths.walk, foot(l.x, l.y, bh, bh));
-    const kind = l.type === "res" ? "lawn" : l.type === "park" ? "park" : l.type === "plaza" ? "plaza" : "paved";
+    const green = l.type === "res" || l.type === "slab" || (cls.full && (l.type === "mid" || l.type === "old")); // courtyards
+    const kind = green ? "lawn" : l.type === "park" ? "park" : l.type === "plaza" ? "plaza" : "paved";
     const F = foot(l.x, l.y, bh - swk, bh - swk);
     poly(paths[kind], F);
     if (l.type === "park" && p.detail >= 1) {
@@ -978,14 +1002,15 @@ function paintGrid(p, cls, seed, Rpx, capital) {
       items.push(it);
     } else if (l.type === "mid") {
       const h = Math.max(p.px(3.5), R * (0.045 + 0.06 * r(24)) * (0.8 + ci * 0.12) * (0.6 + 0.6 * l.c));
-      const split = !big ? 1 : r(25) < 0.3 ? 1 : r(25) < 0.55 ? 2 : r(25) < 0.8 ? 3 : 4;
+      const split = !big ? 1 : cls.full ? (r(25) < 0.5 ? 2 : 3) : r(25) < 0.3 ? 1 : r(25) < 0.55 ? 2 : r(25) < 0.8 ? 3 : 4;
+      const slim = cls.full ? 0.7 : 1; // district blocks leave their courtyards green
       for (const pc of parcels(split, bh)) {
         const [ox, oy] = iso(pc.u, pc.v);
         const gap = Math.max(p.px(0.45), L * 0.018);
         const k = pc.k;
         items.push({
           y: y + oy,
-          draw: () => drawBlock(p, x + ox, y + oy, pc.a - gap, pc.b - gap, h * (0.7 + 0.55 * r(26 + k)), r, k),
+          draw: () => drawBlock(p, x + ox, y + oy, (pc.a - gap) * slim, (pc.b - gap) * slim, h * (0.7 + 0.55 * r(26 + k)), r, k),
         });
       }
     } else if (l.type === "res") {
@@ -1019,10 +1044,44 @@ function paintGrid(p, cls, seed, Rpx, capital) {
         const [tx, ty] = iso((r(110 + k) - 0.5) * bh * 1.5, (r(120 + k) - 0.5) * bh * 1.5);
         items.push({ y: y + ty, draw: () => p.tree(x + tx, y + ty, Math.max(bh * 0.2, p.px(1.6)), r(130 + k) < 0.3) });
       }
+    } else if (l.type === "slab") {
+      const along = r(140) < 0.5;
+      const n = big && r(141) < 0.3 ? 2 : 1;
+      for (let k = 0; k < n; k++) {
+        const off = n === 1 ? 0 : (k ? 0.42 : -0.42) * bh;
+        const [ox, oy] = along ? iso(0, off) : iso(off, 0);
+        const a = along ? bh * 0.78 : bh * 0.2, b = along ? bh * 0.2 : bh * 0.78;
+        const h = Math.max(p.px(6), hMax * (0.45 + 0.55 * r(142 + k)));
+        items.push({ y: y + oy, draw: () => drawSlab(p, x + ox, y + oy, a, b, h, r, k) });
+      }
+      if (p.detail >= 1) {
+        const [tx, ty] = along ? iso(bh * 0.55, 0) : iso(0, bh * 0.55);
+        items.push({ y: y + ty, draw: () => p.tree(x + tx, y + ty, Math.max(bh * 0.18, p.px(1.6)), false) });
+      }
+    } else if (l.type === "old") {
+      const gap = Math.max(p.px(0.35), L * 0.012);
+      for (const pc of parcels(big ? 4 : 1, bh)) {
+        const [ox, oy] = iso(pc.u, pc.v);
+        const k = pc.k;
+        const h = Math.max(p.px(2.6), R * (0.04 + 0.025 * r(150 + k)));
+        const wall = pick(OLD_WALLS, r(155 + k)), roof = pick(OLD_ROOFS, r(160 + k));
+        items.push({ y: y + oy, draw: () => drawOld(p, x + ox, y + oy, pc.a - gap, pc.b - gap, h, wall, roof, r(165 + k) < 0.5 ? 0 : 1) });
+      }
     } else if (l.type === "plaza") {
       items.push({ y, draw: () => drawPlaza(p, x, y, bh, accent) });
     } else if (l.type === "civic") {
       items.push({ y, draw: () => drawChurch(p, x, y, bh * 0.5, accent) });
+    }
+  }
+  // Street trees at two corners of the built blocks: the leafy look of Belgrade's older districts.
+  if (cls.trees) {
+    for (const l of lots) {
+      if (l.type !== "mid" && l.type !== "old" && l.type !== "core") continue;
+      const flip = r0(l.id, 170) < 0.5 ? 1 : -1;
+      for (const sg of [1, -1]) {
+        const [tx, ty] = iso(sg * half * 0.94, sg * flip * half * 0.94);
+        items.push({ y: l.y + ty, draw: () => p.tree(l.x + tx, l.y + ty, Math.max(L * 0.1, p.px(1.6)), false) });
+      }
     }
   }
   // Fringe: houses and trees on the lawn outside the pad.
@@ -1157,6 +1216,23 @@ function drawBlock(p, x, y, a, b, h, r, k) {
     fillPoly(p.g, ins, r(224 + k) < 0.2 ? css(mix(P.park, P.concrete, 0.3)) : css(shade(base, 0.08)));
     if (p.detail >= 2 && r(228 + k) < 0.5) p.box(foot(x - a * 0.2, y - h - b * 0.05, a * 0.22, b * 0.22), 0, p.px(1.4), [150, 146, 138], { outline: false });
   }
+}
+
+/** A prefab residential slab: a tall plain box with rows of windows and a flat roof. */
+function drawSlab(p, x, y, a, b, h, r, k) {
+  const base = pick(PANEL, r(180 + k));
+  const F = foot(x, y, a, b);
+  p.shadow(F, h);
+  p.box(F, 0, h, base);
+  p.windows(F, 0, h, false);
+  if (p.detail >= 1) fillPoly(p.g, foot(x, y - h, a * 0.86, b * 0.86), css(shade(base, -0.06)));
+}
+
+/** A town house of the old core: plastered walls in Habsburg yellow, cream or rose, and a steep tiled roof. */
+function drawOld(p, x, y, a, b, h, wall, roof, along) {
+  const F = foot(x, y, a, b);
+  p.shadow(F, h * 1.6);
+  gable(p.g, F, h, h * 0.75, wall, roof, along, p.detail >= 1 ? p.px(0.5) : 0);
 }
 
 function drawPlaza(p, x, y, bh, accent) {
@@ -1579,7 +1655,7 @@ export function drawCityTile(ctx, city, x, y, R, opts = {}) {
   const kS = isBig ? kDev : kB;
   let sp = null;
   if (flat && R * kS <= MAX_BIG_RPX) {
-    const key = `${seed}|${cityClass(city.population).id}|${col.join(",")}|${capital ? 1 : 0}|${RpxB.toFixed(3)}|${detail}|${kS.toFixed(4)}|${R}`;
+    const key = `${seed}|${classOf(city).id}|${col.join(",")}|${capital ? 1 : 0}|${RpxB.toFixed(3)}|${detail}|${kS.toFixed(4)}|${R}`;
     const paint = (g, k) => paintTile(g, city, R, RpxB, k, detail, col, seed, capital);
     sp = isBig ? getSprite(bigSpriteCache, key, kS, R, paint, BIG_KEEP_MS) : getSprite(spriteCache, key, kS, R, paint);
   }
