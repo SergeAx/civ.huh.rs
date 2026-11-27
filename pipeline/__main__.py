@@ -9,8 +9,8 @@
   all                    fetch + process + build everything, then check
   list                   show sources and builders
   serve                  serve web/ on http://127.0.0.1:8765
-  package                build usaciv.zip: the site to upload, with the source code inside
-                         as usaciv-source.zip
+  package                build srbciv.zip: the site to upload, with the source code inside
+                         as srbciv-source.zip
 
 --offline: never touch the network. core.fetch.OFFLINE is set, so download() of a
 cached file is a no-op and of a missing one (or any url_exists()) raises OfflineError,

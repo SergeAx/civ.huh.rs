@@ -1,8 +1,9 @@
 """Small, dependency-free geometry helpers.
 
-Everything on the map lives in "map km": an Albers equal-area projection of the
-contiguous US, shifted so the top-left of the map is (0, 0) and y points *down*
-(like screen coordinates). Both the hex grid and the browser use this space.
+Everything on the map lives in "map units": an Albers equal-area projection of
+Serbia, scaled by 1 / KM_PER_UNIT and shifted so the top-left of the map is (0, 0)
+and y points *down* (like screen coordinates). Both the hex grid and the browser
+use this space.
 """
 
 from __future__ import annotations
@@ -15,12 +16,15 @@ from dataclasses import dataclass
 from typing import IO, Iterable, Iterator
 
 R_EARTH_KM = 6371.0088
+# The art and the pipeline's tolerances were tuned for upstream's 25 km hexes over the lower 48. Serbia needs ~3 km
+# hexes, so a 25-unit hex is 3 km and everything that is "km" in the inherited code is really map units.
+KM_PER_UNIT = 0.12
 
 
 class Albers:
-    """Albers equal-area conic, standard USGS parameters for the lower 48."""
+    """Albers equal-area conic in km, standard parallels at 1/6 and 5/6 of Serbia's latitude span."""
 
-    def __init__(self, lat1=29.5, lat2=45.5, lat0=37.5, lon0=-96.0):
+    def __init__(self, lat1=42.6, lat2=45.5, lat0=44.0, lon0=20.9):
         p1, p2, p0 = map(math.radians, (lat1, lat2, lat0))
         self.lon0 = math.radians(lon0)
         self.n = (math.sin(p1) + math.sin(p2)) / 2
@@ -77,7 +81,7 @@ class AlbersEllipsoid:
 
 @dataclass
 class MapProjection:
-    """lon/lat → map km (origin top-left, y down)."""
+    """lon/lat → map units (origin top-left, y down)."""
 
     min_x: float
     max_y: float
@@ -87,12 +91,19 @@ class MapProjection:
         self._albers = Albers()
 
     def __call__(self, lon: float, lat: float) -> tuple[float, float]:
-        x, y = self._albers(lon, lat)
+        x, y = self.units(lon, lat)
         return x - self.min_x + self.margin, self.max_y - y + self.margin
 
+    def units(self, lon: float, lat: float) -> tuple[float, float]:
+        """lon/lat → unshifted Albers map units (y up): what min_x and max_y are measured in."""
+        x, y = self._albers(lon, lat)
+        return x / KM_PER_UNIT, y / KM_PER_UNIT
+
     def inverse(self, x: float, y: float) -> tuple[float, float]:
-        """map km → (lon, lat)."""
-        return self._albers.inverse(x + self.min_x - self.margin, self.max_y + self.margin - y)
+        """map units → (lon, lat)."""
+        return self._albers.inverse(
+            (x + self.min_x - self.margin) * KM_PER_UNIT, (self.max_y + self.margin - y) * KM_PER_UNIT
+        )
 
     def to_dict(self) -> dict:
         return {"min_x": self.min_x, "max_y": self.max_y, "margin": self.margin}

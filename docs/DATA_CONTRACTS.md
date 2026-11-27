@@ -1,9 +1,33 @@
 # Data contracts (v2)
 
 The pipeline (Python) and the browser (web/js) agree on these files in `web/data/`. Change a contract here first, then on
-both sides. All coordinates are **map km**: Albers equal-area, origin top-left, y **down** (see `pipeline/core/geo.py`).
+both sides. All coordinates are **map units** of 120 m (world.json `km_per_unit` = 0.12): Albers equal-area, origin
+top-left, y **down** (see `pipeline/core/geo.py`).
 Per-cell arrays have length `grid.cols * grid.rows`, with index `row * cols + col` (pointy-top, odd-r layout, see
 `pipeline/core/hexgrid.py` ⇄ `web/js/hex.js`). `null` always means "no data". Never write `0` as a stand-in for "unknown".
+
+## Serbian edition
+
+This fork keeps upstream's file shapes and key names, so the browser code reads them unchanged. Where the text below
+still describes the US build, these rules win:
+
+* **Units.** 1 map unit = 0.12 km (`world.json` `km_per_unit`); the hex `radius` is 25 units = 3 km. Everything the
+  text calls "km" is map units, except areas and densities, which are real km².
+* **States are okruzi.** `fips` is the okrug code ("00" Grad Beograd, "01"–"29"; 25–29 are Kosovo and Metohija),
+  `abbr` the vehicle-registration code of its seat (BG, NS, PR…), `name` Serbian Cyrillic, `name_lat` Latin. Rows
+  also carry `kim` and `partial` (municipality codes left out of the counts because their census tables are unusable).
+* **Counties are municipalities.** `geoid` is the 5-digit RZS municipality code, or `KM01`–`KM38` (ASK numbering) in
+  KiM. Every row also has `name_lat`.
+* **Cities** are municipalities at their seat (`id` = municipality or city code; Belgrade is `79014`), with `name`
+  (Cyrillic), `name_lat`, `kim`, `reliable` and `pop_year` (2022, or 2024 in KiM). `pop_series` holds every census
+  (RZS) or ASK's yearly estimates.
+* **Money is euros**: the yield and lens unit is `eur`, not `usd`. Gold is GDP, estimated per municipality from okrug
+  value added (`pipeline/build/units.py` `add_gva`); `gdp_estimated` lists the activity groups so estimated.
+* **Growth** runs from the 2011 census to the row's own census: `growth_years` is `[2011, 2022]` or `[2011, 2024]`.
+  A row whose 2011 count is unusable has null growth and null `growth_years`.
+* **Water** is land (0) or lake (3); there is no ocean or coast. Foreign land (`owner` −2) has land cover and `pct`.
+* **Not built:** resources, infrastructure, military, wonders, trade, districts and disasters. They are optional, so
+  the app and `check` skip them.
 
 ## Pipeline conventions
 

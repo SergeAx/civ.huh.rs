@@ -12,20 +12,21 @@ from pipeline import check
 YIELDS = {"food": 10, "production": 20, "gold": 3.5e9, "science": 5, "culture": None}
 ECON = {"population": 1000, "employed": 500, "yields": YIELDS, "jobs": {"agriculture": 10, "mining": None},
         "median_income": 60000, "median_rent": 1200, "home_value": 300000, "unemployment": 0.05, "rent_burden": 0.3,
-        "gdp": 3.5e9, "gdp_year": 2024, "growth": 0.031, "growth_years": [2021, 2025]}
+        "gdp": 3.5e9, "gdp_year": 2024, "growth": 0.031, "growth_years": [2011, 2022]}
 HEX_AREA = 1.5 * math.sqrt(3) * 25.0**2
 
 
 def dataset():
-    """Grid 3×2: cells 0, 1, 3, 4 are state 0 (counties 0/1), cell 2 is ocean, cell 5 Canada."""
+    """Grid 3×2: cells 0, 1, 3, 4 are okrug 0 (municipalities 0/1), cell 2 is a lake, cell 5 Hungary."""
     owner = [0, 0, -1, 0, 0, -2]
     world = {
-        "version": 2, "grid": {"radius": 25.0, "cols": 3, "rows": 2}, "width": 120.0, "height": 60.0, "margin": 0,
-        "owner": owner, "county": [0, 0, -1, 1, 1, -1], "elev": [10, 20, -50, 30, 40, 100],
-        "water": [0, 0, 1, 0, 0, 0], "relief": [0, 1, 0, 0, 2, 1], "cover": [1, 7, 0, 9, 5, 0],
+        "version": 2, "km_per_unit": 1.0, "grid": {"radius": 25.0, "cols": 3, "rows": 2}, "width": 120.0,
+        "height": 60.0, "margin": 0,
+        "owner": owner, "county": [0, 0, -1, 1, 1, -1], "elev": [10, 20, 70, 30, 40, 100],
+        "water": [0, 0, 3, 0, 0, 0], "relief": [0, 1, 0, 0, 2, 1], "cover": [1, 7, 0, 9, 5, 0],
         "pct": {k: [50 if k == "forest" and o >= 0 else 0 for o in owner] for k in check.PCT_KEYS},
         "tables": {
-            "water": [{"id": i, "name": n} for i, n in enumerate(["Land", "Ocean", "Coast", "Lake"])],
+            "water": [{"id": 0, "name": "Land"}, {"id": 3, "name": "Lake"}],
             "relief": [{"id": i, "name": n} for i, n in enumerate(["Flat", "Hills", "Mountains", "Peaks"])],
             "cover": [{"id": 0, "key": "none", "name": "None"}]
             + [{"id": i, "key": k, "name": k, "color": "#123456"} for i, k in enumerate(check.COVER_KEYS) if i],
@@ -56,7 +57,7 @@ def dataset():
               {"fips": "02", "abbr": "AK", "name": "Alaska", **ECON, "yields": small,
                "ranks": {k: (None if v is None else 2) for k, v in ranks.items()}, "land": None,
                "energy": {**energy, "total": 0, "by_type": {"nuclear": 0}, "sites": {"nuclear": 0}}}]
-    nation = {"vintage": "ACS 2025 1-year", "year": 2025, "gdp_vintage": None, "nation": ECON, "industries": {"agriculture": "Agriculture"},
+    nation = {"vintage": "Census 2022", "year": 2022, "gdp_vintage": None, "nation": ECON, "industries": {"agriculture": "Agriculture"},
               "yields": [{"key": k, "icon": f"y-{k}", "emoji": "*", "label": k, "color": "#7fbf3f", "unit": "workers", "description": "d"}
                          for k in check.YIELD_KEYS]}
     # Population 2000 + 1000 spread as density over full-land cells → conserves exactly.
@@ -77,13 +78,13 @@ def dataset():
     county_fields = [{"key": k, "label": k, "format": f, "unit": None, "higher_is": "neutral", "source": "acs_5yr",
                       "description": "d"}
                      for k, f in [("geoid", "text"), ("name", "text"), ("state", "text"), ("population", "int"),
-                                  ("land_km2", "km2"), ("density", "float"), ("poverty", "pct"), ("cbsa", "text")]]
+                                  ("land_km2", "km2"), ("density", "float"), ("poverty", "pct"), ("cbsa", "text"),
+                                  ("cell", "int")]]
     counties = {"vintage": "ACS 2024 5-year", "fields": county_fields, "columns": [f["key"] for f in county_fields],
-                "rows": [["01001", "A County", "AL", 1000, 100.0, 10.0, 0.12, "10000"],
-                         ["01003", "B County", "AL", 2000, 50.0, 40.0, None, None]]}
+                "rows": [["01001", "A County", "AL", 1000, 100.0, 10.0, 0.12, "10000", 0],
+                         ["01003", "B County", "AL", 2000, 50.0, 40.0, None, None, 3]]}
     interim = {
         "_world": {"data": {"counties": ["01001", "01003"], "county_samples": [[0] * 7, [0] * 7, [], [1] * 7, [1] * 7, []]}},
-        "acs_5yr": {"data": {"geos": {"0500000US01001": {"B01003_001": 1000.0}, "0500000US01003": {"B01003_001": 2000.0}}}},
     }
     return {"world.json": world, "cities.json": cities, "states.json": states, "nation.json": nation,
             "lenses.json": lenses, "sources.json": sources, "resources.json": resources, "counties.json": counties}, interim
@@ -161,7 +162,7 @@ class CheckTest(unittest.TestCase):
             "sources without sha": lambda w: w["sources.json"][0]["files"][0].pop("sha256"),
             "rank too big": lambda w: w["states.json"][0]["ranks"].__setitem__("food", 9),
             "string population": lambda w: w["nation.json"]["nation"].__setitem__("population", "1000"),
-            "water above sea level": lambda w: w["world.json"]["elev"].__setitem__(2, 500),
+            "sea in Serbia": lambda w: w["world.json"]["water"].__setitem__(2, 1),
             "state missing econ fields": lambda w: [w["states.json"][0].pop(k) for k in ("gdp", "median_income", "unemployment")],
             "ranks missing yield keys": lambda w: w["states.json"][0].__setitem__("ranks", {"food": 1}),
             "ranks not a permutation": lambda w: w["states.json"][1]["ranks"].__setitem__("food", 1),
@@ -176,18 +177,18 @@ class CheckTest(unittest.TestCase):
             "metro not a bool": lambda w: w["cities.json"][0].__setitem__("metro", "yes"),
             "capital not a bool": lambda w: w["cities.json"][1].__setitem__("capital", 0),
             "river rank not int": lambda w: w["world.json"]["rivers"][0].__setitem__("rank", "x"),
-            "pct on non-US cell": lambda w: w["world.json"]["pct"]["forest"].__setitem__(5, 30),
-            "growth over 25%": lambda w: w["cities.json"][0].__setitem__("growth", 0.4),
+            "pct on water cell": lambda w: w["world.json"]["pct"]["forest"].__setitem__(2, 30),
+            "growth over 100%": lambda w: w["cities.json"][0].__setitem__("growth", 1.4),
             "growth as percent": lambda w: w["states.json"][0].__setitem__("growth", 3.1),
-            "growth_years reversed": lambda w: w["cities.json"][0].__setitem__("growth_years", [2025, 2021]),
+            "growth_years reversed": lambda w: w["cities.json"][0].__setitem__("growth_years", [2022, 2011]),
             "growth without years": lambda w: w["nation.json"]["nation"].__setitem__("growth_years", None),
             "city missing growth": lambda w: w["cities.json"][1].pop("growth"),
             "state growth null within a window": lambda w: w["states.json"][0].__setitem__("growth", None),
             "nation growth null within a window": lambda w: w["nation.json"]["nation"].__setitem__("growth", None),
-            "growth window ends before nation year": lambda w: [
-                o.__setitem__("growth_years", [2021, 2024])
+            "growth window not between censuses": lambda w: [
+                o.__setitem__("growth_years", [2011, 2021])
                 for o in (*w["cities.json"], *w["states.json"], w["nation.json"]["nation"])],
-            "growth windows differ": lambda w: w["cities.json"][1].__setitem__("growth_years", [2020, 2025]),
+            "growth window from another census": lambda w: w["cities.json"][1].__setitem__("growth_years", [2002, 2022]),
             # City view
             "footprint without own cell": lambda w: w["cities.json"][0].__setitem__("footprint", [1]),
             "footprint unsorted": lambda w: w["cities.json"][0].__setitem__("footprint", [1, 0]),
@@ -231,23 +232,24 @@ class CheckTest(unittest.TestCase):
             with self.subTest(label):
                 self.assertTrue(self.run_check(web, interim).failed, label)
 
-    def test_published_zero_is_a_note(self):
+    def test_zero_yield_is_a_note(self):
         web, interim = dataset()
         web["cities.json"][0]["yields"] = {**YIELDS, "food": 0}
-        interim["acs_1yr"] = {"data": {"cbsa": {"10000": {"C24030_004": 0.0, "C24030_031": 0.0}}}}
+        web["cities.json"][0]["ranks"] = {**web["cities.json"][0]["ranks"], "food": 2}
+        web["cities.json"][1]["ranks"] = {**web["cities.json"][1]["ranks"], "food": 1}
         rep = self.run_check(web, interim)
         self.assertEqual(self.levels(rep, "WARN"), [])
-        self.assertTrue(any("published as 0" in m for m in self.levels(rep, "NOTE")))
+        self.assertTrue(any("exactly 0" in m for m in self.levels(rep, "NOTE")))
 
     def test_null_growth_is_fine(self):
         web, interim = dataset()
-        web["cities.json"][1] = {**web["cities.json"][1], "growth": None}
+        web["cities.json"][1] = {**web["cities.json"][1], "growth": None, "growth_years": None}
         web["cities.json"][1]["ranks"] = {**web["cities.json"][1]["ranks"], "growth": None}
         web["states.json"][1] = {**web["states.json"][1], "growth": None, "growth_years": None}
         rep = self.run_check(web, interim)
         self.assertFalse(rep.failed)
-        self.assertTrue(any("cities growth 2021→2025: 1 of 2" in m for m in self.levels(rep, "NOTE")))
-        self.assertTrue(any(m.startswith("growth: one window 2021→2025") for m in self.levels(rep, "PASS")))
+        self.assertTrue(any("cities growth 2011→2022: 1 of 2" in m for m in self.levels(rep, "NOTE")))
+        self.assertTrue(any(m.startswith("growth: windows [(2011, 2022)]") for m in self.levels(rep, "PASS")))
 
     def test_quality_warnings(self):
         web, interim = dataset()
@@ -255,13 +257,10 @@ class CheckTest(unittest.TestCase):
         web["cities.json"][1]["footprint"] = [0, 3, 4]
         web["lenses.json"]["lenses"][0]["values"][0] *= 3  # breaks conservation
         web["world.json"]["rivers"].append({"name": "Lost", "rank": 5, "pts": [-500.0, -500.0, -400.0, -450.0]})
-        web["cities.json"][0]["yields"] = {**YIELDS, "food": 0}
-        web["cities.json"][0]["ranks"] = {**web["cities.json"][0]["ranks"], "food": 2}
-        web["cities.json"][1]["ranks"] = {**web["cities.json"][1]["ranks"], "food": 1}
         rep = self.run_check(web, interim)
         warns = " | ".join(self.levels(rep, "WARN"))
         self.assertFalse(rep.failed)
-        for text in ("density conservation", "more than one city", "outside the map", "exactly 0"):
+        for text in ("density conservation", "more than one city", "outside the map"):
             self.assertIn(text, warns)
 
     def test_city_on_water_and_null_lens_share(self):
@@ -275,33 +274,28 @@ class CheckTest(unittest.TestCase):
         self.assertIn("lens density: 25.0%", warns)
 
     def test_partial_land_share(self):
-        """Cells half covered by county samples count half their area."""
+        """Cells half covered by municipality samples count half their area."""
         web, interim = dataset()
         interim["_world"]["data"]["county_samples"][0] = [0, 0, 0, -1, -1, -1, 0]  # 4/7 land
         rep = self.run_check(web, interim)
         self.assertTrue(any("density conservation" in m for m in self.levels(rep, "WARN")))
 
-    def _add_unsampled_county(self, web, interim, pop):
+    def _add_unsampled_municipality(self, web, interim, cell):
         interim["_world"]["data"]["counties"].append("01005")
         web["world.json"]["counties"].append({"geoid": "01005", "name": "C County"})
-        interim["acs_5yr"]["data"]["geos"]["0500000US01005"] = {"B01003_001": pop}
+        web["counties.json"]["rows"].append(["01005", "C County", "AL", 0, 1.0, 0.0, None, None, cell])
 
-    def test_unsampled_county_placed_is_noted(self):
-        """The lens carries the unsampled county's people (ratio exactly 1), so the line is only a NOTE."""
+    def test_unsampled_municipality_at_its_seat_passes(self):
         web, interim = dataset()
-        self._add_unsampled_county(web, interim, 1000.0)
-        web["lenses.json"]["lenses"][0]["values"][0] *= 2  # cells 0/1 now carry 2000 = counties 01001 + 01005
-        web["lenses.json"]["lenses"][0]["values"][1] *= 2
+        self._add_unsampled_municipality(web, interim, 0)
         rep = self.run_check(web, interim)
-        self.assertTrue(any("hit by no sample" in m and "consistent" in m for m in self.levels(rep, "NOTE")))
+        self.assertTrue(any("smaller than any sample" in m for m in self.levels(rep, "PASS")))
 
-    def test_dropped_unsampled_county_warns(self):
-        """A county dropped by the builders: the ratio is short by exactly its share, so the check can't vouch for it."""
+    def test_unsampled_municipality_off_land_warns(self):
         web, interim = dataset()
-        self._add_unsampled_county(web, interim, 5.0)  # 0.17%: inside CONSERVATION_TOLERANCE, so only this line can tell
+        self._add_unsampled_municipality(web, interim, 2)
         rep = self.run_check(web, interim)
-        self.assertTrue(any("density conservation" in m for m in self.levels(rep, "PASS")))
-        self.assertTrue(any("hit by no sample" in m for m in self.levels(rep, "WARN")))
+        self.assertTrue(any("seat off Serbian land" in m for m in self.levels(rep, "WARN")))
 
 
 if __name__ == "__main__":
