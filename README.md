@@ -91,12 +91,14 @@ bunx wrangler pages deploy --branch master
 
 GitHub Actions runs the unit tests and the data check on every push; deploys are manual.
 
-The social card, `web/og-image.png`, is a render of the map by `web/dev/og.html` (not deployed). Re-make it after a
-data or art change, with the site served locally:
+The social card, `web/og-image.jpg`, is a render of the map by `web/dev/og.html` (not deployed). Re-make it after a
+data or art change, with the site served locally; it stays a JPEG under 300 kB, as WhatsApp drops bigger previews:
 
 ```bash
 chrome --headless=new --hide-scrollbars --force-device-scale-factor=1 --window-size=1200,630 \
-  --virtual-time-budget=20000 --screenshot=web/og-image.png http://127.0.0.1:8765/dev/og.html
+  --virtual-time-budget=20000 --screenshot=og.png http://127.0.0.1:8765/dev/og.html
+uv run --with pillow python -c "from PIL import Image; Image.open('og.png').convert('RGB').save(
+  'web/og-image.jpg', quality=92, optimize=True, progressive=True, subsampling=0)"
 ```
 
 ## Not yet ported
