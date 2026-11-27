@@ -1,5 +1,6 @@
 """Builder discovery, dependency ordering, selection and staleness skipping."""
 
+import itertools
 import os
 import tempfile
 import time
@@ -10,6 +11,10 @@ from unittest import mock
 
 import pipeline.__main__ as cli
 from pipeline.build import BUILDERS, _order
+
+# Each fake build stamps its outputs a little later than the last one, as real builds take time: on a coarse clock
+# (Windows) an output written right after its input can otherwise share its mtime, and a tie counts as stale.
+_clock = itertools.count(1)
 
 
 def fake(name, requires, produces, run_last=False, file=None, log=None):
@@ -22,10 +27,12 @@ def fake(name, requires, produces, run_last=False, file=None, log=None):
     def build():
         if log is not None:
             log.append(name)
+        t = time.time() + next(_clock) * 0.01
         for out in produces:
             p = cli.output_path(out)
             p.parent.mkdir(parents=True, exist_ok=True)
             p.write_text("{}")
+            os.utime(p, (t, t))
 
     m.build = build
     return m
