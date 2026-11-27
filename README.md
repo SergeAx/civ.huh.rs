@@ -91,6 +91,14 @@ bunx wrangler pages deploy --branch master
 
 GitHub Actions runs the unit tests and the data check on every push; deploys are manual.
 
+The social card, `web/og-image.png`, is a render of the map by `web/dev/og.html` (not deployed). Re-make it after a
+data or art change, with the site served locally:
+
+```bash
+chrome --headless=new --hide-scrollbars --force-device-scale-factor=1 --window-size=1200,630 \
+  --virtual-time-budget=20000 --screenshot=web/og-image.png http://127.0.0.1:8765/dev/og.html
+```
+
 ## Not yet ported
 
 Advisors, city districts, wonders, trade routes and military sites: their US sources are gone and their Serbian ones
